@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phòng WebRTC Đa Chức Năng - Index2</title>
+    <title>Phòng WebRTC Live & Screen Share - Index2</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1100px; }
@@ -81,10 +81,8 @@
             <div id="khung-chat"></div>
             <div id="vung-nhap">
                 <input type="text" id="o-nhap" placeholder="Nhập tin nhắn hoặc dán link video..." autocomplete="off" disabled>
-                
                 <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
                 <input type="file" id="o-chon-anh" style="display:none;" accept="image/*" onchange="guiAnhTuDong(this)">
-                
                 <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
                 <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
             </div>
@@ -98,6 +96,8 @@
 
         <div id="khoi-camera-phu"></div>
     </div>
+    
+    <video id="video-ao-hardware" autoplay playsinline style="display:none;"></video>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -244,7 +244,7 @@
         const nutCongTacShare = document.getElementById('nut-cong-tac-share');
 
         async function xuLyCongTacCamera() {
-            if (!daDangNhapThogan) { alert("Vui lòng đăng nhập trước!"); return; }
+            if (!daDangNhapThanhCong) { alert("Vui lòng đăng nhập trước!"); return; }
             if (luongCamPhanCung) {
                 tatHarnCameraPhanCung();
                 socket.emit('chu_dong_tat_camera_server');
@@ -257,7 +257,7 @@
                             nutCongTacCam.style.background = "#d32f2f";
                             
                             capNhatHoacTaoOVideo(socket.id + "-cam", oTen.value.trim() + " (Cam)", luongCamPhanCung, "cam");
-                            dongBoLaiTatCaDuongTruyenWebRtc(); // Gọi hàm cập nhật bắt tay ép máy khác xem
+                            dongBoLaiTatCaDuongTruyenWebRtc(); 
                         } catch (err) { alert("Không thể mở Cam!"); }
                     } else { alert(res.msg); }
                 });
@@ -298,19 +298,13 @@
             dongBoLaiTatCaDuongTruyenWebRtc();
         }
 
-        // Hàm tối thượng: Buộc tất cả các kết nối hiện tại phải đàm phán lại để truyền luồng mới lập tức
         function dongBoLaiTatCaDuongTruyenWebRtc() {
             Object.keys(peerConnections).forEach(idSocketNguoiKia => {
                 let pc = peerConnections[idSocketNguoiKia];
-                
-                // Xóa sạch luồng cũ trong ống truyền dẫn đi
                 pc.getSenders().forEach(sender => pc.removeTrack(sender));
-                
-                // Nạp lại luồng mới đang hoạt động vào đường ống
                 if (luongCamPhanCung) luongCamPhanCung.getTracks().forEach(track => pc.addTrack(track, luongCamPhanCung));
                 if (luongSharePhanCung) luongSharePhanCung.getTracks().forEach(track => pc.addTrack(track, luongSharePhanCung));
                 
-                // Tạo lời mời làm mới bắt tay WebRTC gửi sang máy người kia
                 pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
                     socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idSocketNguoiKia, type: 'offer', sdp: pc.localDescription });
                 });
@@ -326,9 +320,8 @@
             if (luongCamPhanCung) luongCamPhanCung.getTracks().forEach(track => pc.addTrack(track, luongCamPhanCung));
             if (luongSharePhanCung) luongSharePhanCung.getTracks().forEach(track => pc.addTrack(track, luongSharePhanCung));
 
-            // Lắng nghe luồng nhị phân truyền về từ máy người kia và vẽ riêng từng ô video tương ứng
             pc.ontrack = (event) => {
-                let streams = event.streams[0];
+                let streams = event.streams;
                 let hasVideoTrack = event.track.kind === 'video';
                 if (hasVideoTrack) {
                     let isScreenShare = event.track.label.toLowerCase().includes('screen') || event.track.label.toLowerCase().includes('display');
@@ -425,6 +418,6 @@
             if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || []; 
             lichSuNoiBo.push(data);
-            if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
-            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
-        });
+if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
+localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
+});
