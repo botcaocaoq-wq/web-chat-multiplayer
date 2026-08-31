@@ -42,20 +42,24 @@ io.on('connection', (socket) => {
 
     socket.on('gui_tin_nhan_mau', (data) => {
         console.log('Server nhận được tin nhắn từ ' + data.ten + ': ' + data.chu);
-        io.emit('tin_nhan_moi_tu_server', data);
+        
+        // SỬA CHÍNH XÁC Ở ĐÂY: Phát lại dữ liệu ra phòng kèm theo mã máy idSocketNguoiGui và idNguoiGui (cho điện thoại)
+        io.emit('tin_nhan_moi_tu_server', {
+            ten: data.ten,
+            chu: data.chu,
+            idSocketNguoiGui: data.idSocketNguoiGui
+        });
 
-        // Tạo nội dung thông báo đẩy ngầm
+        // Phát thông báo đẩy ngầm đến tất cả các điện thoại đang tắt web/thoát tab
         const payload = JSON.stringify({
             title: `Tin nhắn mới từ ${data.ten}`,
             body: data.chu
         });
 
-        // Phát thông báo đẩy ngầm đến tất cả các điện thoại đã đăng ký kích hoạt
         danhSachDangKyThongBao.forEach(sub => {
-            // TÍNH NĂNG THÔNG MINH: Chỉ gửi thông báo nếu thiết bị đó KHÔNG PHẢI là người vừa ấn nút gửi
+            // Chỉ gửi thông báo đẩy ngầm ra màn hình điện thoại nếu thiết bị đó không phải là người vừa nhắn
             if (sub.endpoint !== data.idNguoiGui) {
                 webpush.sendNotification(sub, payload).catch(err => {
-                    // Nếu người dùng gỡ cài đặt hoặc chặn thông báo thì xóa thiết bị đó khỏi danh sách
                     if (err.statusCode === 410) {
                         danhSachDangKyThongBao = danhSachDangKyThongBao.filter(s => s.endpoint !== sub.endpoint);
                     }
