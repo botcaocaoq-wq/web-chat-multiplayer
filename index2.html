@@ -18,8 +18,8 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
 
-        /* 🛠️ THIẾT KẾ RIÊNG: Khu vực điều khiển Camera nằm riêng ở trang index2 này */
-        #vung-chuc-nang-camera { margin-bottom: 10px; width: 422px; }
+        /* Khu vực điều khiển Camera nằm riêng ở trang index2 này */
+        #vung-chuc-nang-camera { margin-bottom: 10px; width: 422px; display: block !important; }
         #nut-cong-tac-cam { width: 100%; padding: 12px; font-size: 16px; background: #00897b; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         #nut-cong-tac-cam:hover { background: #00695c; }
 
@@ -53,7 +53,7 @@
     
     <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
     
-    <!-- 🛠️ THIẾT KẾ RIÊNG: Nút công tắc Bật/Tắt nằm riêng biệt hẳn ở trên giao diện index2 -->
+    <!-- Nút công tắc Bật/Tắt nằm riêng biệt hẳn ở trên giao diện index2 -->
     <div id="vung-chuc-nang-camera">
         <button id="nut-cong-tac-cam" onclick="xuLyCongTacCamera()">📷 BẬT / TẮT MÁY ẢNH WEBCAM</button>
     </div>
@@ -235,7 +235,7 @@
             }
             return ""; 
         }
-        // 🛠️ TÍNH NĂNG ĐỘC QUYỀN TRÊN INDEX2: Xử lý bật/tắt luồng máy ảnh phần cứng độc lập
+        // Xử lý bật/tắt luồng máy ảnh phần cứng độc lập của index2
         let luongCamHardware = null;
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
         const khungSoiCam = document.getElementById('khung-soi-cam');
@@ -245,11 +245,9 @@
                 alert("Vui lòng Đăng nhập tên tài khoản vào phòng chat trước khi mở Camera!");
                 return;
             }
-            // Nếu cam đang bật -> Thực hiện ngắt luồng và ẩn khung hình
             if (luongCamHardware) {
                 tatHarnCameraPhanCung();
             } 
-            // Nếu cam đang tắt -> Xin quyền khởi động máy ảnh
             else {
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     try {
@@ -286,15 +284,14 @@
                 canvas.width = 500;
                 canvas.height = khungSoiCam.videoHeight * (500 / khungSoiCam.videoWidth);
                 
-                // Hiệu ứng lật gương ảnh chụp cho tự nhiên
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
                 
                 ctx.drawImage(khungSoiCam, 0, 0, canvas.width, canvas.height);
-                const dataUrlWebcam = canvas.toDataURL('image/jpeg', 0.6); // Nén nhẹ 60%
+                const dataUrlWebcam = canvas.toDataURL('image/jpeg', 0.6); 
                 
                 socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: dataUrlWebcam });
-                tatHarnCameraPhanCung(); // Chụp xong tự động tắt cam để gọn máy
+                tatHarnCameraPhanCung(); 
             }
         }
 
