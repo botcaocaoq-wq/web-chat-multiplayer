@@ -72,7 +72,7 @@
             }
         }
 
-        fnction guiTinNhan() {
+        function guiTinNhan() {
             let noiDung = oNhap.value.trim();
             if (noiDung !== "") {
                 socket.emit('gui_tin_nhan_mau', { loai: 'chu', noiDung: noiDung });
@@ -81,20 +81,21 @@
             }
         }
 
-        // Hàm trung gian khi click vào nút ghim sẽ tự kích hoạt ô chọn file ảnh ẩn
+        // Kích hoạt ô chọn file ẩn khi click vào nút 📎
         function kichHoatOChonAnh() {
             document.getElementById('o-chon-anh').click();
         }
 
-        // Chọn ảnh từ mục ảnh một phát là hệ thống tự động bắn đi luôn
+        // Đọc ảnh và tự động phát qua socket gửi lên khung chat
         function guiAnhTuDong(input) {
             if (input.files && input.files[0]) {
-                const file = input.files[0]; // SỬA TẠI ĐÂY: Thêm [0] để lấy đúng file ảnh được chọn
+                const file = input.files[0];
                 const reader = new FileReader();
                 
                 reader.onload = function(e) {
+                    // Gửi dữ liệu ảnh dưới dạng Base64 qua server
                     socket.emit('gui_tin_nhan_mau', { loai: 'anh', noiDung: e.target.result });
-                    input.value = ""; 
+                    input.value = ""; // Reset để có thể chọn tiếp cùng một ảnh
                 };
                 reader.readAsDataURL(file);
             }
@@ -108,6 +109,7 @@
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
 
+            // Phân loại hiển thị nếu là Chữ hay là Ảnh
             if (data.loai === 'chu') {
                 dongTinNhan.innerText = data.noiDung;
             } else if (data.loai === 'anh') {
