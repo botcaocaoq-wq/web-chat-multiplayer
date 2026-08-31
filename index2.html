@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phòng Chat WebRTC Toàn Diện - Bản Hoàn Chỉnh Chống Lag</title>
+    <title>Phòng Chat WebRTC - Chỉ Chia Sẻ Màn Hình</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
@@ -14,7 +14,6 @@
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
         .nut-tien-ich { padding: 8px 12px; font-size: 18px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; }
-        #nut-cong-tac-cam { background: #555; }
         #nut-cong-tac-share { background: #555; }
         #nut-chon-anh { background: #555; }
         #o-chon-anh { display: none; } 
@@ -43,7 +42,6 @@
         }
         .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
         .video-stream-cam { width: 100%; height: 100%; object-fit: cover; background: #111; }
-        .lat-guong { transform: scaleX(-1); } 
         .nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
 
         @media (max-width: 950px) {
@@ -67,8 +65,8 @@
             <div id="vung-nhap">
                 <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
                 
-                <button id="nut-cong-tac-cam" class="nut-tien-ich" type="button" onclick="xuLyCongTacThietBi('camera')" disabled>📷</button>
-                <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacThietBi('screen')" disabled>🖥️</button>
+                <!-- Chỉ giữ lại duy nhất nút Share màn hình cạnh ô nhập -->
+                <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacThietBi()" disabled>🖥️</button>
                 
                 <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
                 <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
@@ -96,13 +94,12 @@
         const nutDoiTk = document.getElementById('nut-doi-tk');
         const nutGui = document.getElementById('nut-gui');
         const nutChonAnh = document.getElementById('nut-chon-anh');
-        const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
         const nutCongTacShare = document.getElementById('nut-cong-tac-share');
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
 
         let daDangNhapThanhCong = false;
         let localStream = null;
-        let loaiStreamHienTai = null; 
+        let dangChiaSeManhinh = false; 
         let peerConnections = {}; 
         const rtcConfig = { iceServers: [{ urls: 'stun:://google.com' }] };
 
@@ -126,7 +123,6 @@
                     daDangNhapThanhCong = true;
                     oNhap.disabled = false;
                     nutChonAnh.disabled = false;
-                    nutCongTacCam.disabled = false;
                     nutCongTacShare.disabled = false;
                     nutGui.disabled = false;
                     vungTaiKhoan.style.display = 'none';
@@ -196,7 +192,7 @@
 
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
         function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
-        // KỊCH BẢN KIỂU ZOOM: Đồng bộ ngay lập tức khi người khác vào phòng sau
+        // ĐỒNG BỘ KIỂU ZOOM: Tự động kết nối lấy màn hình của người phát trước khi mình vào sau
         socket.on('dong_bo_tat_ca_camera_hieng_tai', (danhSachCam) => {
             Object.keys(danhSachCam).forEach(idSocket => {
                 if (idSocket !== socket.id) {
@@ -235,10 +231,10 @@
                 }
             };
 
-            // HIỂN THỊ HÌNH ẢNH TRUYỀN VỀ TỪ CÁC TAB KHÁC
+            // Nhận luồng màn hình máy khác đổ về và vẽ lên lưới
             pc.ontrack = (e) => {
-                if (e.streams && e.streams[0]) {
-                    themKhoiVideoElements(idDoiPhuong, e.streams[0], tenNguoiDung, false);
+                if (e.streams && e.streams) {
+                    themKhoiVideoElements(idDoiPhuong, e.streams, tenNguoiDung);
                 }
             };
 
@@ -271,49 +267,36 @@
             }
         });
 
-        // CÔNG TẮC ĐIỀU KHIỂN: Nạp trực tiếp luồng localStream giúp hiển thị ngay tại tab bấm nút
-        async function xuLyCongTacThietBi(loaiYeuCau) {
+        // Hàm xử lý Bật/Tắt chia sẻ màn hình độc lập [INDEX3]
+        async function xuLyCongTacThietBi() {
             const tenUser = oTen.value.trim();
 
-            if (loaiStreamHienTai === loaiYeuCau) {
+            if (dangChiaSeManhinh) {
                 tatXongGiaiPhongThietBi();
                 return;
             }
 
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-                xoaKhoiVideoElements("my-local-video"); 
-            }
-
             try {
-                let laHieuUngGuong = false;
-                if (loaiYeuCau === 'camera') {
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                    loaiStreamHienTai = 'camera';
-                    laHieuUngGuong = true; 
-                    nutCongTacCam.style.background = '#4caf50'; 
-                    nutCongTacShare.style.background = '#555';
-                } else if (loaiYeuCau === 'screen') {
-                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                    loaiStreamHienTai = 'screen';
-                    nutCongTacShare.style.background = '#3949ab'; 
-                    nutCongTacCam.style.background = '#555';
-                    localStream.getVideoTracks().onended = () => { tatXongGiaiPhongThietBi(); };
-                }
+                // Gọi API chia sẻ màn hình hệ thống
+                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                dangChiaSeManhinh = true;
+                nutCongTacShare.style.background = '#3949ab'; // Đổi sang màu xanh dương báo hiệu đang chạy [INDEX3]
 
-                // HIỂN THỊ NGAY khung hình của bạn tại tab bạn vừa bấm nút
-                const nhanHienThi = loaiYeuCau === 'screen' ? "Bạn (Đang chia sẻ màn hình)" : "Bạn (Camera)";
-                themKhoiVideoElements("my-local-video", localStream, nhanHienThi, laHieuUngGuong);
+                // Hiện ngay lập tức màn hình của bạn lên góc phải tab bạn đang dùng để kiểm tra hình ảnh [INDEX3]
+                themKhoiVideoElements("my-local-video", localStream, "Bạn (Đang chia sẻ màn hình)");
 
-                socket.emit('xin_phep_bat_camera_server', { ten: loaiYeuCau === 'screen' ? `${tenUser} (Màn hình)` : tenUser }, (res) => {
+                // Khi bấm nút ngừng chia sẻ mặc định của trình duyệt Chrome/Edge
+                localStream.getVideoTracks().onended = () => { tatXongGiaiPhongThietBi(); };
+
+                // Khai báo lên server
+                socket.emit('xin_phep_bat_camera_server', { ten: `${tenUser} (Màn hình)` }, (res) => {
                     if (!res.allowed) {
                         alert(res.msg);
                         tatXongGiaiPhongThietBi();
                     }
                 });
 
-                // Ép làm mới track và thương lượng bắt tay lại để kích hoạt đồng bộ toàn sever tức thời
+                // Ép truyền track sang các máy khác có sẵn trong phòng chat
                 Object.keys(peerConnections).forEach(id => {
                     const pc = peerConnections[id];
                     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -323,7 +306,7 @@
                 });
 
             } catch (err) {
-                alert('Không thể mở thiết bị!');
+                alert('Không thể mở chức năng chia sẻ màn hình!');
                 tatXongGiaiPhongThietBi();
             }
         }
@@ -331,32 +314,30 @@
         function tatXongGiaiPhongThietBi() {
             if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
             xoaKhoiVideoElements("my-local-video"); 
-            loaiStreamHienTai = null;
-            nutCongTacCam.style.background = '#555';
-            nutCongTacShare.style.background = '#555';
+            dangChiaSeManhinh = false;
+            nutCongTacShare.style.background = '#555'; // Trả về màu xám mặc định [INDEX3]
             socket.emit('chu_dong_tat_camera_server');
         }
 
-        // HÀM HIỂN THỊ CHỐNG LAG: Cô lập rác card màn hình độc lập cho từng ô video
-        function themKhoiVideoElements(id, stream, labelText, MirrorEffect) {
+        // Hàm render video chống lag tối đa [INDEX3]
+        function themKhoiVideoElements(id, stream, labelText) {
             const khungSẵnCó = document.getElementById(id);
             if (khungSẵnCó) {
                 const videoSẵnCó = khungSẵnCó.querySelector('video');
                 if (videoSẵnCó && videoSẵnCó.srcObject !== stream) {
-                    videoSẵnCó.srcObject = null; // Ép hủy stream cũ để giải phóng RAM
+                    videoSẵnCó.srcObject = null; // Ép hủy stream cũ để giải phóng rác RAM
                     videoSẵnCó.load();
-                    videoSẵnCó.srcObject = stream; // Nạp luồng siêu tốc mới
+                    videoSẵnCó.srcObject = stream;
                 }
                 return;
             }
 
             const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
             const video = document.createElement('video'); video.className = 'video-stream-cam';
-            if (MirrorEffect) video.classList.add('lat-guong');
             
             video.autoplay = true; 
             video.playsInline = true; 
-            video.muted = (id === "my-local-video"); 
+            video.muted = (id === "my-local-video"); // Tắt tiếng luồng của chính mình tránh lặp tiếng rú
             video.srcObject = stream;
             
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
