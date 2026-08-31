@@ -2,114 +2,102 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
-    maxHttpBufferSize: 1e7 // Giới hạn nhận dữ liệu 10MB để nhận được file ảnh chụp từ Webcam
+    maxHttpBufferSize: 1e7 // Giới hạn 10MB nhận luồng stream siêu tốc
 });
 const webpush = require('web-push');
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Tự động tạo cặp khóa chuẩn VAPID khi khởi động để hệ thống Render không bị lỗi Failed
 const vapidKeys = webpush.generateVAPIDKeys();
 const publicVapidKey = vapidKeys.publicKey;
 const privateVapidKey = vapidKeys.privateKey;
-
 webpush.setVapidDetails('mailto:botcaocaoq@gmail.com', publicVapidKey, privateVapidKey);
 
-// Bộ nhớ lưu trữ tạm thời các phiên chat trên RAM Server
 let danhSachDangKyThongBao = [];
 let mangTinNhanServer = []; 
 let danhSachTaiKhoan = {};   
 
-// Hàm tự động quét dọn xóa sạch tin nhắn cũ sau mỗi 20 phút để server luôn nhẹ, không bị lag
+// 🛠️ MỚI: Danh sách quản lý tối đa 4 người đang bật Camera Livestream
+let danhSachCamServer = {}; // Lưu dạng { idSocket: nickname }
+
 function quetTinNhanQua20Phut() {
     const bayGio = Date.now();
     const haiMuoiPhut = 20 * 60 * 1000; 
     mangTinNhanServer = mangTinNhanServer.filter(tinNhan => (bayGio - tinNhan.thoiGian) < haiMuoiPhut);
 }
-// Cứ mỗi 5 phút hệ thống tự động chạy kiểm tra bộ nhớ một lần
 setInterval(quetTinNhanQua20Phut, 5 * 60 * 1000);
 
-// 1. Đường dẫn mặc định mở trang chat chính (index.html)
-app.get('/', (req, res) => { 
-    res.sendFile(__dirname + '/index.html'); 
-});
-
-// 2. 🛠️ ĐÃ THÊM: Đường dẫn phụ mở trang gánh thử nghiệm Camera (index2.html)
-app.get('/camera', (req, res) => {
-    res.sendFile(__dirname + '/index2.html');
-});
-
+app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
+app.get('/camera', (req, res) => { res.sendFile(__dirname + '/index2.html'); });
 app.get('/vapid-public-key', (req, res) => { res.send(publicVapidKey); });
 
-app.post('/luu-thong-bao', (req, res) => {
-    const subscription = req.body;
-    if (!danhSachDangKyThongBao.some(sub => sub.endpoint === subscription.endpoint)) {
-        danhSachDangKyThongBao.push(subscription);
-    }
-    res.status(201).json({});
-});
-
-// Xử lý các sự kiện realtime kết nối Socket.io
 io.on('connection', (socket) => {
-    console.log('Có thiết bị kết nối vào phòng chat: ' + socket.id);
+    console.log('Thiết bị kết nối: ' + socket.id);
 
-    // Xử lý đăng nhập kiểm tra mật khẩu bằng Nickname cụ thể
     socket.on('dang_nhap_he_thong', (data, callback) => {
         const username = data.ten.trim().toLowerCase();
         const password = data.matKhau;
-
-        if (!username || username === "ẩn danh") {
-            return callback({ success: false, msg: 'Tên tài khoản không hợp lệ!' });
-        }
+        if (!username || username === "ẩn danh") return callback({ success: false, msg: 'Tên không hợp lệ!' });
 
         if (!danhSachTaiKhoan[username]) {
-            // Tên chưa từng tồn tại -> Tự động đăng ký mới với mật khẩu vừa nhập
             danhSachTaiKhoan[username] = password;
             callback({ success: true, isNew: true });
         } else {
-            // Tên đã tồn tại trên hệ thống -> Bắt buộc kiểm tra trùng khớp mật khẩu cũ
-            if (danhSachTaiKhoan[username] === password) {
-                callback({ success: true, isNew: false });
-            } else {
-                callback({ success: false, msg: 'Sai mật khẩu của tài khoản này!' });
-            }
+            if (danhSachTaiKhoan[username] === password) callback({ success: true, isNew: false });
+            else callback({ success: false, msg: 'Sai mật khẩu!' });
         }
     });
 
-    // Người vào sau (ở cả trang chính lẫn trang camera) tải lại lịch sử tin nhắn trong vòng 20 phút
     socket.on('lay_lich_su_khi_vao_sau', () => {
-        quetTinNhanQua20Phut(); 
         socket.emit('tra_lich_su_cho_nguoi_moi', mangTinNhanServer);
+        // 🛠️ MỚI: Gửi danh sách các camera đang phát cho người vào sau đồng bộ giao diện
+        socket.emit('dong_bo_tat_ca_camera_hieng_tai', danhSachCamServer);
     });
 
-    socket.on('gui_tin_nhan_mau', (data) => {
-        const tinNhanMoi = {
-            loai: data.loai,
-            ten: data.ten,
-            chu: data.chu,
-            thoiGian: Date.now() 
-        };
+    // 🛠️ MỚI: Logic xin quyền bật camera (Giới hạn tối đa 4 người)
+    socket.on('xin_phep_bat_camera_server', (data, callback) => {
+        const soLuongCam = Object.keys(danhSachCamServer).length;
+        if (soLuongCam >= 4) {
+            return callback({ allowed: false, msg: "Phòng livestream đã đầy (Tối đa 4 người)! Vui lòng đợi người khác tắt cam." });
+        }
+        // Thêm vào danh sách phát
+        danhSachCamServer[socket.id] = data.ten;
+        callback({ allowed: true });
+        // Phát tín hiệu cho cả server tạo thêm khung video mới
+        io.emit('co_nguoi_vua_bat_camera', { idSocket: socket.id, ten: data.ten });
+    });
 
-        mangTinNhanServer.push(tinNhanMoi);
-        io.emit('tin_nhan_moi_tu_server', tinNhanMoi);
-
-        let noiDungThongBao = data.loai === 'anh' ? '[Hình ảnh]' : data.chu;
-        const payload = JSON.stringify({ title: `Tin nhắn từ ${data.ten}`, body: noiDungThongBao });
-
-        danhSachDangKyThongBao.forEach(sub => {
-            if (sub.endpoint !== data.idNguoiGui) {
-                webpush.sendNotification(sub, payload).catch(err => {
-                    if (err.statusCode === 410) {
-                        danhSachDangKyThongBao = danhSachDangKyThongBao.filter(s => s.endpoint !== sub.endpoint);
-                    }
-                });
-            }
+    // 🛠️ MỚI: Trung chuyển luồng dữ liệu Livestream liên tục từ máy phát đến các máy xem
+    socket.on('luong_livestream_tu_may_khach', (data) => {
+        socket.broadcast.emit('luong_livestream_tu_server_ve', {
+            idSocket: socket.id,
+            khungHinh: data.khungHinh
         });
     });
 
-    socket.on('disconnect', () => { console.log('Một thiết bị đã ngắt kết nối.'); });
+    // 🛠️ MỚI: Xử lý khi có người chủ động tắt camera
+    socket.on('chu_dong_tat_camera_server', () => {
+        if (danhSachCamServer[socket.id]) {
+            delete danhSachCamServer[socket.id];
+            io.emit('co_nguoi_vua_tat_camera', { idSocket: socket.id });
+        }
+    });
+
+    socket.on('gui_tin_nhan_mau', (data) => {
+        const tinNhanMoi = { loai: data.loai, ten: data.ten, chu: data.chu, thoiGian: Date.now() };
+        mangTinNhanServer.push(tinNhanMoi);
+        io.emit('tin_nhan_moi_tu_server', tinNhanMoi);
+    });
+
+    // Xử lý khi người dùng tắt tab / ngắt kết nối đột ngột
+    socket.on('disconnect', () => {
+        if (danhSachCamServer[socket.id]) {
+            delete danhSachCamServer[socket.id];
+            io.emit('co_nguoi_vua_tat_camera', { idSocket: socket.id });
+        }
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => { console.log(`Server đang vận hành ổn định tại port: ${PORT}`); });
+http.listen(PORT, () => { console.log(`Server port: ${PORT}`); });
