@@ -5,8 +5,6 @@
     <title>Phòng Thử Nghiệm Camera - Index2</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
-        
-        /* Cấu hình chia đôi không gian: Trái là Khung chat - Phải là Camera trên Máy tính */
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 900px; }
         
         #khoi-chat-chinh { width: 422px; }
@@ -18,7 +16,7 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
 
-        /* Khu vực điều khiển Camera nằm riêng ở trang index2 này */
+        /* Khu vực nút công tắc điều khiển Camera nằm riêng ở index2 */
         #vung-chuc-nang-camera { margin-bottom: 10px; width: 422px; display: block !important; }
         #nut-cong-tac-cam { width: 100%; padding: 12px; font-size: 16px; background: #00897b; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         #nut-cong-tac-cam:hover { background: #00695c; }
@@ -39,7 +37,7 @@
         .link-lien-ket { color: #2196f3; text-decoration: underline; font-weight: bold; }
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
 
-        /* Tự động bẻ dọc nhảy xuống dưới vùng khoanh đỏ khi mở trên Điện thoại */
+        /* Tự bẻ dọc nhảy xuống vùng khoanh đỏ khi mở trên Điện thoại màn hình dọc */
         @media (max-width: 850px) {
             #giao-dien-tong { flex-direction: column; width: 100%; gap: 10px; }
             #khoi-chat-chinh, #khoi-camera-phu, #khung-chat, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen, #vung-chuc-nang-camera { width: 100% !important; max-width: 422px; }
@@ -53,7 +51,6 @@
     
     <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
     
-    <!-- Nút công tắc Bật/Tắt nằm riêng biệt hẳn ở trên giao diện index2 -->
     <div id="vung-chuc-nang-camera">
         <button id="nut-cong-tac-cam" onclick="xuLyCongTacCamera()">📷 BẬT / TẮT MÁY ẢNH WEBCAM</button>
     </div>
@@ -82,7 +79,6 @@
             <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
         </div>
 
-        <!-- Khối chứa Camera gánh riêng (Phải máy tính / Dưới điện thoại) -->
         <div id="khoi-camera-phu">
             <video id="khung-soi-cam" autoplay playsinline></video>
             <button id="nut-chup-anh" onclick="xuLyChupVaGuiAnhWebcam()">📸 CHỤP VÀ GỬI ẢNH NGAY</button>
@@ -179,6 +175,7 @@
             }
         }
 
+        // Gửi tin nhắn chữ
         function guiTinNhan() {
             let noiDung = oNhap.value.trim();
             if (noiDung !== "") {
@@ -191,7 +188,7 @@
 
         function guiAnhTuDong(input) {
             if (input.files && input.files) {
-                const file = input.files;
+                const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const img = new Image();
@@ -228,14 +225,13 @@
             const bieuThucLink = /(https?:\/\/[^\s]+)/g;
             const cacLink = chu.match(bieuThucLink);
             if (cacLink) {
-                let linkGoc = cacLink;
+                let linkGoc = cacLink[0];
                 if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be') || linkGoc.includes('tiktok.com')) {
                     return `<a href="${linkGoc}" target="_blank" class="link-lien-ket">Bấm vào để xem video 🎬</a>`;
                 }
             }
             return ""; 
         }
-        // Xử lý bật/tắt luồng máy ảnh phần cứng độc lập của index2
         let luongCamHardware = null;
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
         const khungSoiCam = document.getElementById('khung-soi-cam');

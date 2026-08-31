@@ -10,8 +10,8 @@
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
-        #nut-chon-anh { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
-        #nut-chon-anh:hover { background: #666; }
+        #nut-chon-anh, #nut-nhay-cam { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
+        #nut-chon-anh:hover, #nut-nhay-cam:hover { background: #666; }
         #o-chon-anh { display: none; } 
         
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
@@ -28,10 +28,7 @@
         
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        
-        /* 🛠️ CSS ĐÃ CẬP NHẬT: Màu sắc hiển thị link liên kết nổi bật, dễ bấm */
         .link-lien-ket { color: #2196f3; text-decoration: underline; font-weight: bold; }
-        .link-lien-ket:hover { color: #64b5f6; }
 
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
     </style>
@@ -46,7 +43,11 @@
     <div id="khung-chat"></div>
     
     <div id="vung-nhap">
-        <input type="text" id="o-nhap" placeholder="Nhập tin nhắn hoặc dán link video..." autocomplete="off" disabled>
+        <input type="text" id="o-nhap" placeholder="Nhập chữ hoặc dán link YouTube/TikTok..." autocomplete="off" disabled>
+        
+        <!-- NÚT CAM: Bấm vào đây để nhảy sang trang camera ở tab mới độc lập -->
+        <button id="nut-nhay-cam" type="button" onclick="moTrangWebcamIndex2()" disabled>📷</button>
+        
         <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
@@ -80,34 +81,29 @@
             let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.forEach(data => {
-                if (data.thoiGian > mocThoiGianAn) {
-                    hienThiTinNhanLenKhungChat(data);
-                }
+                if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
             });
         });
 
         function xuLyXacThucTaiKhoan() {
             const ten = oTen.value.trim();
             const matKhau = oMatKhau.value;
-
             if(!ten || !matKhau) {
                 alert("Vui lòng nhập đầy đủ cả Tên đăng nhập và Mật khẩu!");
                 return;
             }
-
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
                 if (res.success) {
                     daDangNhapThanhCong = true;
                     oNhap.disabled = false;
                     document.getElementById('nut-chon-anh').disabled = false;
+                    document.getElementById('nut-nhay-cam').disabled = false; // Mở khóa nút cam
                     document.getElementById('nut-gui').disabled = false;
                     
                     localStorage.setItem('saved_username', ten);
                     localStorage.setItem('saved_password', matKhau);
-                    
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
-
                     socket.emit('lay_lich_su_khi_vao_sau');
                 } else {
                     alert(res.msg);
@@ -116,30 +112,32 @@
         }
 
         function xuLyDoiTaiKhoan() {
-            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không? (Tài khoản cũ của bạn vẫn giữ nguyên)")) {
+            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không?")) {
                 daDangNhapThanhCong = false;
                 oNhap.disabled = true;
                 document.getElementById('nut-chon-anh').disabled = true;
+                document.getElementById('nut-nhay-cam').disabled = true;
                 document.getElementById('nut-gui').disabled = true;
                 oNhap.value = "";
                 localStorage.removeItem('saved_username');
                 localStorage.removeItem('saved_password');
-                oTen.value = "";
-                oMatKhau.value = "";
+                oTen.value = ""; oMatKhau.value = "";
                 vungTaiKhoan.style.display = 'flex';
                 nutDoiTk.style.display = 'none';
             }
+        }
+
+        // Hàm xử lý nút 📷 để mở tab /camera gánh camera riêng
+        function moTrangWebcamIndex2() {
+            window.open('/camera', '_blank');
         }
 
         socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
             khungChat.innerHTML = ""; 
             let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             let lichSuLuuLocal = [];
-            
             mangTinNhan.forEach(data => {
-                if (data.thoiGian > mocThoiGianAn) {
-                    hienThiTinNhanLenKhungChat(data);
-                }
+                if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
                 lichSuLuuLocal.push(data);
             });
             localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuLuuLocal));
@@ -165,8 +163,7 @@
             let noiDung = oNhap.value.trim();
             if (noiDung !== "") {
                 socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: oTen.value.trim(), chu: noiDung });
-                oNhap.value = "";
-                oNhap.focus();
+                oNhap.value = ""; oNhap.focus();
             }
         }
 
@@ -184,8 +181,7 @@
                         const ctx = canvas.getContext('2d');
                         const max_width = 500;
                         const scale = max_width / img.width;
-                        canvas.width = max_width;
-                        canvas.height = img.height * scale;
+                        canvas.width = max_width; canvas.height = img.height * scale;
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
                         socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
@@ -197,7 +193,7 @@
         }
 
         function xoaSachManHinhTroChuyen() {
-            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn hiện tại ở phía bạn không?")) {
+            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn ở phía bạn không?")) {
                 khungChat.innerHTML = ""; 
                 localStorage.removeItem('lichSuChat_Local'); 
                 localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now().toString());
@@ -207,14 +203,12 @@
         oNhap.addEventListener("keypress", function(event) {
             if (event.key === "Enter") { guiTinNhan(); }
         });
-        // 🛠️ ĐÃ CẬP NHẬT: Nhận diện link và bọc thành thẻ <a> mở tab mới trực tiếp, không dùng iframe nữa
+
         function taoNoiDungTinNhanHtml(chu) {
             const bieuThucLink = /(https?:\/\/[^\s]+)/g;
             const cacLink = chu.match(bieuThucLink);
-            
             if (cacLink) {
                 let linkGoc = cacLink[0];
-                // Chỉ nhận diện chuyển đổi nếu là đường dẫn thuộc mạng YouTube hoặc TikTok
                 if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be') || linkGoc.includes('tiktok.com')) {
                     return `<a href="${linkGoc}" target="_blank" class="link-lien-ket">Bấm vào để xem video 🎬</a>`;
                 }
@@ -225,36 +219,28 @@
         function hienThiTinNhanLenKhungChat(data) {
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
-
             if (data.loai === 'chu') {
                 let theLinkHtml = taoNoiDungTinNhanHtml(data.chu);
                 if (theLinkHtml !== "") {
-                    // Nếu là link video chuẩn, render thành nút bấm mở tab mới luôn
                     dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> ${theLinkHtml}`;
                 } else {
-                    // Nếu là chữ thường, hiện dạng văn bản textNode an toàn tuyệt đối
                     dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> <span></span>`;
                     dongTinNhan.querySelector('span').innerText = data.chu;
                 }
             } else if (data.loai === 'anh') {
                 dongTinNhan.innerHTML = `<strong>${data.ten}:</strong><img src="${data.chu}" class="anh-chat"/>`;
             }
-
             khungChat.appendChild(dongTinNhan);
             khungChat.scrollTop = khungChat.scrollHeight;
         }
 
         socket.on('tin_nhan_moi_tu_server', function(data) {
             let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
-            if (data.thoiGian > mocThoiGianAn) {
-                hienThiTinNhanLenKhungChat(data);
-            }
-
+            if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.push(data);
             if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
             localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
-
             if (Notification.permission === "granted") {
                 new Notification(`Tin nhắn mới từ ${data.ten}`, { body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", icon: "https://flaticon.com" });
             }
