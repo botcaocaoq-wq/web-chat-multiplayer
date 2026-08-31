@@ -106,8 +106,15 @@
         const oMatKhau = document.getElementById('o-mat-khau');
         const vungTaiKhoan = document.getElementById('vung-tai-khoan');
         const nutDoiTk = document.getElementById('nut-doi-tk');
-        let daDangNhapThanhCong = false;
+        const nutGui = document.getElementById('nut-gui');
+        const nutChonAnh = document.getElementById('nut-chon-anh');
+        const khoiCameraPhu = document.getElementById('khoi-camera-phu');
 
+        let daDangNhapThanhCong = false;
+        let localStream = null;
+        let screenStream = null;
+
+        // Tự động đăng nhập và tải lịch sử cục bộ
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
@@ -121,6 +128,7 @@
             });
         });
 
+        // Xử lý xác thực tài khoản
         function xuLyXacThucTaiKhoan() {
             const ten = oTen.value.trim();
             const matKhau = oMatKhau.value;
@@ -129,295 +137,207 @@
                 return;
             }
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
-                if (res.success) {
+                if (res && res.success) {
                     daDangNhapThanhCong = true;
                     oNhap.disabled = false;
-                    document.getElementById('nut-chon-anh').disabled = false;
-                    document.getElementById('nut-gui').disabled = false;
-                    localStorage.setItem('saved_username', ten);
-                    localStorage.setItem('saved_password', matKhau);
+                    nutChonAnh.disabled = false;
+                    nutGui.disabled = false;
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
-                    socket.emit('lay_lich_su_khi_vao_sau');
-                } else { alert(res.msg); }
+
+                    localStorage.setItem('saved_username', ten);
+                    localStorage.setItem('saved_password', matKhau);
+                } else {
+                    alert("Đăng nhập thất bại! Kiểm tra lại thông tin.");
+                }
             });
         }
 
+        // Đổi tài khoản
         function xuLyDoiTaiKhoan() {
-            if(confirm("Bạn có chắc muốn đổi tài khoản không?")) {
-                daDangNhapThanhCong = false;
-                tatHarnCameraPhanCung(); 
-                tatHarnSharePhanCung();
-                oNhap.disabled = true;
-                document.getElementById('nut-chon-anh').disabled = true;
-                document.getElementById('nut-gui').disabled = true;
-                oNhap.value = "";
-                localStorage.removeItem('saved_username'); localStorage.removeItem('saved_password');
-                oTen.value = ""; oMatKhau.value = "";
-                vungTaiKhoan.style.display = 'flex'; nutDoiTk.style.display = 'none';
-            }
+            localStorage.removeItem('saved_username');
+            localStorage.removeItem('saved_password');
+            location.reload();
         }
 
-        socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
-            khungChat.innerHTML = ""; 
-            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
-            let lichSuLuuLocal = [];
-            mangTinNhan.forEach(data => {
-                if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
-                lichSuLuuLocal.push(data);
-            });
-            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuLuuLocal));
-        });
-
-        async function kichHoatChayNgam() {
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                try {
-                    const reg = await navigator.serviceWorker.register('/sw.js');
-                    const permission = await Notification.requestPermission();
-                    if (permission !== 'granted') { return; }
-                    const response = await fetch('/vapid-public-key');
-                    const publicKey = await response.text();
-                    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey });
-                    await fetch('/luu-thong-bao', { method: 'POST', body: JSON.stringify(sub), headers: { 'Content-Type': 'application/json' } });
-                    alert('Kích hoạt chạy ngầm thành công!');
-                    document.getElementById('nut-xin-quyen').style.display = 'none';
-                } catch (error) { console.error(error); }
-            }
+        // Kích hoạt ô chọn ảnh ẩn
+        function kichHoatOChonAnh() {
+            document.getElementById('o-chon-anh').click();
         }
 
-        function guiTinNhan() {
-            let noiDung = oNhap.value.trim();
-            if (noiDung !== "") {
-                socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: oTen.value.trim(), chu: noiDung });
-                oNhap.value = ""; oNhap.focus();
-            }
-        }
-
-        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
-
+        // Tự động gửi ảnh khi chọn file
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
-                const file = input.files;
+            if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const img = new Image(); img.src = e.target.result;
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                        canvas.width = 500; canvas.height = img.height * (500 / img.width);
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
-                        socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
-                        input.value = ""; 
+                    const dataMessage = {
+                        ten: oTen.value.trim(),
+                        loai: 'image',
+                        noiDung: e.target.result,
+                        thoiGian: Date.now()
                     };
+                    socket.emit('gui_tin_nhan_server', dataMessage);
+                    luuLichSuLocal(dataMessage);
+                    hienThiTinNhanLenKhungChat(dataMessage);
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(input.files[0]);
+                input.value = ''; 
             }
         }
 
-        function xoaSachManHinhTroChuyen() {
-            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn ở phía bạn không?")) {
-                khungChat.innerHTML = ""; localStorage.removeItem('lichSuChat_Local'); 
-                localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now().toString());
-            }
-        }
+        // Gửi tin nhắn text
+        function guiTinNhan() {
+            const noiDung = oNhap.value.trim();
+            if (!noiDung) return;
 
-        oNhap.addEventListener("keypress", function(event) { if (event.key === "Enter") { guiTinNhan(); } });
-
-        function taoNoiDungTinNhanHtml(chu) {
-            const bieuThucLink = /(https?:\/\/[^\s]+)/g; const cacLink = chu.match(bieuThucLink);
-            if (cacLink) {
-                let linkGoc = cacLink;
-                if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be') || linkGoc.includes('tiktok.com')) {
-                    return `<a href="${linkGoc}" target="_blank" class="link-lien-ket">Bấm vào để xem video 🎬</a>`;
-                }
-            }
-            return ""; 
-        }
-        // --- HỆ THỐNG WEBRTC ĐỒNG BỘ ĐA LUỒNG TỰ ĐỘNG CHUẨN XÁC ---
-        let luongCamPhanCung = null;
-        let luongSharePhanCung = null;
-        let peerConnections = {}; 
-        
-        const rtcConfig = { iceServers: [{ urls: 'stun:://google.com' }] };
-        const khoiCameraPhu = document.getElementById('khoi-camera-phu');
-        const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
-        const nutCongTacShare = document.getElementById('nut-cong-tac-share');
-
-        async function xuLyCongTacCamera() {
-            if (!daDangNhapThanhCong) { alert("Vui lòng đăng nhập trước!"); return; }
-            if (luongCamPhanCung) {
-                tatHarnCameraPhanCung();
-                socket.emit('chu_dong_tat_camera_server');
-            } else {
-                socket.emit('xin_phep_bat_camera_server', { ten: oTen.value.trim() }, async (res) => {
-                    if (res.allowed) {
-                        try {
-                            luongCamPhanCung = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                            nutCongTacCam.innerText = "🛑 TẮT CAMERA";
-                            nutCongTacCam.style.background = "#d32f2f";
-                            
-                            capNhatHoacTaoOVideo(socket.id + "-cam", oTen.value.trim() + " (Cam)", luongCamPhanCung, "cam");
-                            dongBoLaiTatCaDuongTruyenWebRtc(); 
-                        } catch (err) { alert("Không thể mở Cam!"); }
-                    } else { alert(res.msg); }
-                });
-            }
-        }
-
-        async function xuLyCongTacScreenShare() {
-            if (!daDangNhapThanhCong) { alert("Vui lòng đăng nhập trước!"); return; }
-            if (luongSharePhanCung) {
-                tatHarnSharePhanCung();
-            } else {
-                try {
-                    luongSharePhanCung = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-                    nutCongTacShare.innerText = "🛑 TẮT CHIA SẺ";
-                    nutCongTacShare.style.background = "#d32f2f";
-                    
-                    capNhatHoacTaoOVideo(socket.id + "-share", oTen.value.trim() + " [Màn hình]", luongSharePhanCung, "share");
-                    dongBoLaiTatCaDuongTruyenWebRtc(); 
-
-                    luongSharePhanCung.getVideoTracks().onended = () => { tatHarnSharePhanCung(); };
-                } catch (err) { alert("Không thể Share màn hình!"); }
-            }
-        }
-
-        function tatHarnCameraPhanCung() {
-            if (luongCamPhanCung) { luongCamPhanCung.getTracks().forEach(track => track.stop()); luongCamPhanCung = null; }
-            xoaOVideoKhoiGiaoDien(socket.id + "-cam");
-            nutCongTacCam.innerText = "📷 BẬT CAMERA";
-            nutCongTacCam.style.background = "#00897b";
-            dongBoLaiTatCaDuongTruyenWebRtc();
-        }
-
-        function tatHarnSharePhanCung() {
-            if (luongSharePhanCung) { luongSharePhanCung.getTracks().forEach(track => track.stop()); luongSharePhanCung = null; }
-            xoaOVideoKhoiGiaoDien(socket.id + "-share");
-            nutCongTacShare.innerText = "🖥️ CHIA SẺ MÀN HÌNH";
-            nutCongTacShare.style.background = "#3949ab";
-            dongBoLaiTatCaDuongTruyenWebRtc();
-        }
-
-        function dongBoLaiTatCaDuongTruyenWebRtc() {
-            Object.keys(peerConnections).forEach(idSocketNguoiKia => {
-                let pc = peerConnections[idSocketNguoiKia];
-                pc.getSenders().forEach(sender => pc.removeTrack(sender));
-                if (luongCamPhanCung) luongCamPhanCung.getTracks().forEach(track => pc.addTrack(track, luongCamPhanCung));
-                if (luongSharePhanCung) luongSharePhanCung.getTracks().forEach(track => pc.addTrack(track, luongSharePhanCung));
-                
-                pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-                    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idSocketNguoiKia, type: 'offer', sdp: pc.localDescription });
-                });
-            });
-        }
-
-        function khoiTaoNgoiKetNoiWebRtc(idSocketNguoiKia, tenNguoiKia, isCaller) {
-            if (peerConnections[idSocketNguoiKia]) return peerConnections[idSocketNguoiKia];
-            
-            const pc = new RTCPeerConnection(rtcConfig);
-            peerConnections[idSocketNguoiKia] = pc;
-
-            if (luongCamPhanCung) luongCamPhanCung.getTracks().forEach(track => pc.addTrack(track, luongCamPhanCung));
-            if (luongSharePhanCung) luongSharePhanCung.getTracks().forEach(track => pc.addTrack(track, luongSharePhanCung));
-
-            pc.ontrack = (event) => {
-                let streams = event.streams;
-                let hasVideoTrack = event.track.kind === 'video';
-                if (hasVideoTrack) {
-                    let isScreenShare = event.track.label.toLowerCase().includes('screen') || event.track.label.toLowerCase().includes('display');
-                    let loaiTag = isScreenShare ? "share" : "cam";
-                    let nhanHienThi = tenNguoiKia + (isScreenShare ? " [Màn hình]" : " (Cam)");
-                    capNhatHoacTaoOVideo(idSocketNguoiKia + "-" + loaiTag, nhanHienThi, streams, loaiTag);
-                }
+            const dataMessage = {
+                ten: oTen.value.trim(),
+                loai: 'text',
+                noiDung: noiDung,
+                thoiGian: Date.now()
             };
 
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idSocketNguoiKia, type: 'candidate', candidate: event.candidate });
-                }
-            };
-
-            if (isCaller) {
-                pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-                    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idSocketNguoiKia, type: 'offer', sdp: pc.localDescription });
-                });
-            }
-            return pc;
+            socket.emit('gui_tin_nhan_server', dataMessage);
+            luuLichSuLocal(dataMessage);
+            hienThiTinNhanLenKhungChat(dataMessage);
+            oNhap.value = '';
         }
 
-        function capNhatHoacTaoOVideo(idDinhDanh, ten, luongStreamMedia, loaiStream = "cam") {
-            let oCamDan = document.getElementById(`cam-${idDinhDanh}`);
-            if (!oCamDan) {
-                oCamDan = document.createElement('div'); oCamDan.id = `cam-${idDinhDanh}`; oCamDan.className = 'o-chua-cam-don';
-                let lopGuong = loaiStream === "cam" ? "video-stream-cam lat-guong" : "video-stream-cam";
-                oCamDan.innerHTML = `<video id="vdo-${idDinhDanh}" class="${lopGuong}" autoplay playsinline></video><div class="nhan-ten-cam">${ten}</div>`;
-                khoiCameraPhu.appendChild(oCamDan);
-            }
-            const videoThe = document.getElementById(`vdo-${idDinhDanh}`);
-            if (videoThe && luongStreamMedia) videoThe.srcObject = luongStreamMedia;
-        }
-
-        function xoaOVideoKhoiGiaoDien(idDinhDanh) {
-            const oCamDan = document.getElementById(`cam-${idDinhDanh}`); if (oCamDan) oCamDan.remove();
-        }
-
-        socket.on('co_nguoi_vua_bat_camera', function(data) {
-            if (data.idSocket !== socket.id) {
-                khoiTaoNgoiKetNoiWebRtc(data.idSocket, data.ten, (luongCamPhanCung || luongSharePhanCung) ? true : false);
-            }
+        // Hỗ trợ nhấn Enter để gửi tin nhắn
+        oNhap.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') guiTinNhan();
         });
-
-        socket.on('rtc_tin_hieu_nhan_ve', function(data) {
-            let pc = peerConnections[data.sender];
-            if (data.type === 'offer') {
-                if (!pc) pc = khoiTaoNgoiKetNoiWebRtc(data.sender, "Người chơi", false);
-                pc.setRemoteDescription(new RTCSessionDescription(data.sdp))
-                  .then(() => pc.createAnswer())
-                  .then(answer => pc.setLocalDescription(answer))
-                  .then(() => {
-                      socket.emit('rtc_tin_hieu_chuyen_tiep', { to: data.sender, type: 'answer', sdp: pc.localDescription });
-                  });
-            } else if (data.type === 'answer' && pc) {
-                pc.setRemoteDescription(new RTCSessionDescription(data.sdp)).catch(e => console.error(e));
-            } else if (data.type === 'candidate' && pc) {
-                pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => console.error(e));
-            }
-        });
-
-        socket.on('co_nguoi_vua_tat_camera', function(data) { 
-            xoaOVideoKhoiGiaoDien(data.idSocket + "-cam"); 
-            xoaOVideoKhoiGiaoDien(data.idSocket + "-share"); 
-            if (peerConnections[data.idSocket]) { peerConnections[data.idSocket].close(); delete peerConnections[data.idSocket]; }
-        });
-        
-        socket.on('dong_bo_tat_ca_camera_hieng_tai', function(danhSachCam) {
-            Object.keys(danhSachCam).forEach(idSock => {
-                if (idSock !== socket.id) khoiTaoNgoiKetNoiWebRtc(idSock, danhSachCam[idSock], false);
-            });
-        });
-
+        // Hiển thị tin nhắn lên giao diện
         function hienThiTinNhanLenKhungChat(data) {
-            let dongTinNhan = document.createElement('div'); dongTinNhan.className = 'tin-nhan';
-            if (data.loai === 'chu') {
-                let theLinkHtml = taoNoiDungTinNhanHtml(data.chu);
-                if (theLinkHtml !== "") {
-                    dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> ${theLinkHtml}`;
-                } else {
-                    dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> <span></span>`;
-                    dongTinNhan.querySelector('span').innerText = data.chu;
-                }
-            } else if (data.loai === 'anh') {
-                dongTinNhan.innerHTML = `<strong>${data.ten}:</strong><img src="${data.chu}" class="anh-chat"/>`;
+            const div = document.createElement('div');
+            div.className = 'tin-nhan';
+            
+            const tieuDe = document.createElement('strong');
+            tieuDe.innerText = `${data.ten}: `;
+            div.appendChild(tieuDe);
+
+            if (data.loai === 'image') {
+                const img = document.createElement('img');
+                img.src = data.noiDung;
+                img.className = 'anh-chat';
+                div.appendChild(img);
+            } else {
+                const span = document.createElement('span');
+                span.innerText = data.noiDung;
+                div.appendChild(span);
             }
-            khungChat.appendChild(dongTinNhan); 
+
+            khungChat.appendChild(div);
             khungChat.scrollTop = khungChat.scrollHeight;
         }
 
-        socket.on('tin_nhan_moi_tu_server', function(data) {
-            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
-            if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
-            let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || []; 
+        // Nhận tin nhắn từ Server phương thức Broadcast
+        socket.on('nhan_tin_nhan_client', (data) => {
+            luuLichSuLocal(data);
+            hienThiTinNhanLenKhungChat(data);
+        });
+
+        // Lưu lịch sử cục bộ
+        function luuLichSuLocal(data) {
+            let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.push(data);
-if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
-localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
-});
+            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
+        }
+
+        // Xóa sạch màn hình trò chuyện (Ẩn tạm thời dựa vào mốc thời gian)
+        function xoaSachManHinhTroChuyen() {
+            localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now());
+            khungChat.innerHTML = '';
+        }
+
+        // Yêu cầu quyền Notification kích hoạt chạy ngầm
+        function kichHoatChayNgam() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        alert('Đã bật thông báo thành công!');
+                    }
+                });
+            } else {
+                alert('Trình duyệt của bạn không hỗ trợ thông báo.');
+            }
+        }
+
+        // Xử lý bật/tắt Camera
+        async function xuLyCongTacCamera() {
+            const nutCam = document.getElementById('nut-cong-tac-cam');
+            if (!localStream) {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    themKhoiVideoElements('local-cam', localStream, 'Bạn (Camera)', true);
+                    nutCam.innerText = '📷 TẮT CAMERA';
+                    nutCam.style.background = '#e53935';
+                } catch (err) {
+                    alert('Không thể truy cập Camera: ' + err.message);
+                }
+            } else {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+                xoaKhoiVideoElements('local-cam');
+                nutCam.innerText = '📷 BẬT CAMERA';
+                nutCam.style.background = '#00897b';
+            }
+        }
+
+        // Xử lý bật/tắt Screen Share
+        async function xuLyCongTacScreenShare() {
+            const nutShare = document.getElementById('nut-cong-tac-share');
+            if (!screenStream) {
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    themKhoiVideoElements('local-screen', screenStream, 'Bạn (Màn hình)', false);
+                    nutShare.innerText = '🖥️ TẮT CHIA SẺ';
+                    nutShare.style.background = '#e53935';
+
+                    screenStream.getVideoTracks().onended = () => {
+                        xuLyCongTacScreenShare(); 
+                    };
+                } catch (err) {
+                    alert('Không thể chia sẻ màn hình: ' + err.message);
+                }
+            } else {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+                xoaKhoiVideoElements('local-screen');
+                nutShare.innerText = '🖥️ CHIA SẺ MÀN HÌNH';
+                nutShare.style.background = '#3949ab';
+            }
+        }
+
+        // Thêm khung video động vào lưới
+        function themKhoiVideoElements(id, stream, labelText, MirrorEffect = false) {
+            if (document.getElementById(id)) return;
+
+            const box = document.createElement('div');
+            box.id = id;
+            box.className = 'o-chua-cam-don';
+
+            const video = document.createElement('video');
+            video.className = 'video-stream-cam';
+            if (MirrorEffect) video.classList.add('lat-guong');
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = stream;
+
+            const label = document.createElement('div');
+            label.className = 'nhan-ten-cam';
+            label.innerText = labelText;
+
+            box.appendChild(video);
+            box.appendChild(label);
+            khoiCameraPhu.appendChild(box);
+        }
+
+        // Xóa khung video khỏi lưới
+        function xoaKhoiVideoElements(id) {
+            const box = document.getElementById(id);
+            if (box) box.remove();
+        }
+    </script>
+</body>
+</html>
