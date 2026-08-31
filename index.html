@@ -22,7 +22,7 @@
 
     <h3>KHUNG TIN NHẮN MULTIPLAYER</h3>
     
-    <!-- Nút bấm bắt buộc để cài đặt bộ chạy ngầm vào máy tính/điện thoại -->
+    <!-- Nút bấm để kích hoạt nhận thông báo đẩy ngầm cho điện thoại -->
     <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
     
     <div id="khung-chat"></div>
@@ -41,14 +41,14 @@
         const oNhap = document.getElementById('o-nhap');
         const oTen = document.getElementById('o-ten');
 
-        // Hàm đăng ký chạy ngầm dưới hệ thống để nhận thông báo đẩy
+        // Hàm đăng ký chạy ngầm dưới hệ thống để nhận thông báo đẩy cho điện thoại
         async function kichHoatChayNgam() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
                     // 1. Cài đặt file sw.js chạy ẩn vào hệ thống
                     const reg = await navigator.serviceWorker.register('/sw.js');
                     
-                    // 2. Xin quyền thông báo
+                    // 2. Xin quyền thông báo từ trình duyệt
                     const permission = await Notification.requestPermission();
                     if (permission !== 'granted') {
                         alert('Bạn cần cấp quyền thông báo thì tính năng này mới chạy được!');
@@ -73,7 +73,6 @@
                     });
 
                     alert('Kích hoạt chạy ngầm thành công! Giờ bạn tắt web đi vẫn nhận được thông báo nhé.');
-                    document.getElementById('nut-xin-quyen').style.display = 'none';
 
                 } catch (error) {
                     console.error('Lỗi thiết lập chạy ngầm:', error);
@@ -83,19 +82,12 @@
             }
         }
 
-        // Tự động ẩn nút màu cam nếu người dùng đã kích hoạt thành công từ trước
-        if (Notification.permission === "granted") {
-            // Chúng ta không ẩn ngay để đề phòng trường hợp cần bấm lại để khớp khóa cố định mới
-            console.log("Quyền thông báo đã được cấp.");
-        }
-
-        // Hàm xử lý gửi tin nhắn kèm ID thiết bị ẩn
+        // Hàm xử lý gửi tin nhắn kèm ID thiết bị ẩn lên server lọc thông báo ngầm cho điện thoại
         function guiTinNhan() {
             let bieuTen = oTen.value.trim() || "Ẩn danh";
             let noiDung = oNhap.value.trim();
             
             if (noiDung !== "") {
-                // Kiểm tra Service Worker để lấy ID định danh thiết bị ngầm gửi lên server lọc
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(function(reg) {
                         reg.pushManager.getSubscription().then(function(sub) {
@@ -112,7 +104,6 @@
                             oNhap.focus();
                         });
                     }).catch(function() {
-                        // Dự phòng nếu service worker chưa sẵn sàng thì gửi bình thường
                         socket.emit('gui_tin_nhan_mau', { ten: bieuTen, chu: noiDung, idNguoiGui: null });
                         oNhap.value = "";
                         oNhap.focus();
@@ -131,12 +122,27 @@
             }
         });
 
+        // Nhận dữ liệu tin nhắn mới từ server trả về
         socket.on('tin_nhan_moi_tu_server', function(data) {
+            // 1. Tự động thêm dòng chữ tin nhắn vào khung chat hiển thị trên web
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
             dongTinNhan.innerHTML = `<span class="ten-nguoi-gui">[${data.ten}]:</span> ${data.chu}`;
             khungChat.appendChild(dongTinNhan);
             khungChat.scrollTop = khungChat.scrollHeight;
+
+            // 2. XỬ LÝ CHẶN THÔNG BÁO TỰ PHÁT BẤT TIỆN TRÊN MÀN HÌNH MÁY TÍNH:
+            let tenHienTai = oTen.value.trim() || "Ẩn danh";
+
+            // CHỈ bật cái bảng thông báo màu đen ở góc màn hình khi: TÊN người gửi KHÁC với tên của bạn
+            if (data.ten !== tenHienTai) {
+                if (Notification.permission === "granted") {
+                    new Notification(`Tin nhắn mới từ ${data.ten}`, {
+                        body: data.chu,
+                        icon: "https://flaticon.com"
+                    });
+                }
+            }
         });
     </script>
 </body>
