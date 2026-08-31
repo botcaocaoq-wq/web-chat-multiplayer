@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Phòng Thử Nghiệm Camera - Index2</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
+        
+        /* Cấu hình chia đôi không gian: Trái là Khung chat - Phải là Camera trên Máy tính */
+        #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 900px; }
+        
+        #khoi-chat-chinh { width: 422px; }
+        #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
+        
+        #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
+        #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+        #nut-chon-anh { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
+        #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
+        #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
+
+        /* 🛠️ THIẾT KẾ RIÊNG: Khu vực điều khiển Camera nằm riêng ở trang index2 này */
+        #vung-chuc-nang-camera { margin-bottom: 10px; width: 422px; }
+        #nut-cong-tac-cam { width: 100%; padding: 12px; font-size: 16px; background: #00897b; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        #nut-cong-tac-cam:hover { background: #00695c; }
+
+        /* Khối hiển thị khung camera bên phải trên máy tính */
+        #khoi-camera-phu { display: none; width: 400px; background: #333; border: 1px solid #555; padding: 10px; border-radius: 4px; }
+        #khung-soi-cam { width: 100%; height: 300px; background: #000; border-radius: 4px; object-fit: cover; transform: scaleX(-1); }
+        #nut-chup-anh { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 15px; }
+        #nut-chup-anh:hover { background: #45a049; }
+
+        #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
+        .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+        #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
+        
+        .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
+        .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
+        .link-lien-ket { color: #2196f3; text-decoration: underline; font-weight: bold; }
+        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
+
+        /* Tự động bẻ dọc nhảy xuống dưới vùng khoanh đỏ khi mở trên Điện thoại */
+        @media (max-width: 850px) {
+            #giao-dien-tong { flex-direction: column; width: 100%; gap: 10px; }
+            #khoi-chat-chinh, #khoi-camera-phu, #khung-chat, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen, #vung-chuc-nang-camera { width: 100% !important; max-width: 422px; }
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <h3>PHÒNG CHAT MULTIPLAYER - GÁNH CAMERA (INDEX2)</h3>
+    
+    <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
+    
+    <!-- 🛠️ THIẾT KẾ RIÊNG: Nút công tắc Bật/Tắt nằm riêng biệt hẳn ở trên giao diện index2 -->
+    <div id="vung-chuc-nang-camera">
+        <button id="nut-cong-tac-cam" onclick="xuLyCongTacCamera()">📷 BẬT / TẮT MÁY ẢNH WEBCAM</button>
+    </div>
+
+    <div id="giao-dien-tong">
+        
+        <div id="khoi-chat-chinh">
+            <div id="khung-chat"></div>
+            
+            <div id="vung-nhap">
+                <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
+                
+                <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
+                <input type="file" id="o-chon-anh" style="display: none;" accept="image/*" onchange="guiAnhTuDong(this)">
+                
+                <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
+                <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
+            </div>
+
+            <div id="vung-tai-khoan">
+                <input type="text" id="o-ten" class="o-dang-nhap" placeholder="Nhập Nickname..." autocomplete="off">
+                <input type="password" id="o-mat-khau" class="o-dang-nhap" placeholder="Mật khẩu..." autocomplete="off">
+                <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
+            </div>
+            
+            <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
+        </div>
+
+        <!-- Khối chứa Camera gánh riêng (Phải máy tính / Dưới điện thoại) -->
+        <div id="khoi-camera-phu">
+            <video id="khung-soi-cam" autoplay playsinline></video>
+            <button id="nut-chup-anh" onclick="xuLyChupVaGuiAnhWebcam()">📸 CHỤP VÀ GỬI ẢNH NGAY</button>
+        </div>
+
+    </div>
+    <script>
+        const socket = io();
+        const khungChat = document.getElementById('khung-chat');
+        const oNhap = document.getElementById('o-nhap');
+        const oTen = document.getElementById('o-ten');
+        const oMatKhau = document.getElementById('o-mat-khau');
+        const vungTaiKhoan = document.getElementById('vung-tai-khoan');
+        const nutDoiTk = document.getElementById('nut-doi-tk');
+        let daDangNhapThanhCong = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
+                oTen.value = localStorage.getItem('saved_username');
+                oMatKhau.value = localStorage.getItem('saved_password');
+                xuLyXacThucTaiKhoan(); 
+            }
+            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
+            let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
+            lichSuNoiBo.forEach(data => {
+                if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
+            });
+        });
+
+        function xuLyXacThucTaiKhoan() {
+            const ten = oTen.value.trim();
+            const matKhau = oMatKhau.value;
+            if(!ten || !matKhau) {
+                alert("Vui lòng nhập đầy đủ cả Tên đăng nhập và Mật khẩu!");
+                return;
+            }
+            socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
+                if (res.success) {
+                    daDangNhapThanhCong = true;
+                    oNhap.disabled = false;
+                    document.getElementById('nut-chon-anh').disabled = false;
+                    document.getElementById('nut-gui').disabled = false;
+                    localStorage.setItem('saved_username', ten);
+                    localStorage.setItem('saved_password', matKhau);
+                    vungTaiKhoan.style.display = 'none';
+                    nutDoiTk.style.display = 'block';
+                    socket.emit('lay_lich_su_khi_vao_sau');
+                } else {
+                    alert(res.msg);
+                }
+            });
+        }
+
+        function xuLyDoiTaiKhoan() {
+            if(confirm("Bạn có chắc muốn đổi tài khoản không?")) {
+                daDangNhapThanhCong = false;
+                tatHarnCameraPhanCung(); 
+                oNhap.disabled = true;
+                document.getElementById('nut-chon-anh').disabled = true;
+                document.getElementById('nut-gui').disabled = true;
+                oNhap.value = "";
+                localStorage.removeItem('saved_username');
+                localStorage.removeItem('saved_password');
+                oTen.value = ""; oMatKhau.value = "";
+                vungTaiKhoan.style.display = 'flex';
+                nutDoiTk.style.display = 'none';
+            }
+        }
+
+        socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
+            khungChat.innerHTML = ""; 
+            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
+            let lichSuLuuLocal = [];
+            mangTinNhan.forEach(data => {
+                if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
+                lichSuLuuLocal.push(data);
+            });
+            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuLuuLocal));
+        });
+
+        async function kichHoatChayNgam() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') { return; }
+                    const response = await fetch('/vapid-public-key');
+                    const publicKey = await response.text();
+                    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey });
+                    await fetch('/luu-thong-bao', { method: 'POST', body: JSON.stringify(sub), headers: { 'Content-Type': 'application/json' } });
+                    alert('Kích hoạt chạy ngầm thành công!');
+                    document.getElementById('nut-xin-quyen').style.display = 'none';
+                } catch (error) { console.error(error); }
+            }
+        }
+
+        function guiTinNhan() {
+            let noiDung = oNhap.value.trim();
+            if (noiDung !== "") {
+                socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: oTen.value.trim(), chu: noiDung });
+                oNhap.value = ""; oNhap.focus();
+            }
+        }
+
+        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
+
+        function guiAnhTuDong(input) {
+            if (input.files && input.files) {
+                const file = input.files;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const max_width = 500;
+                        const scale = max_width / img.width;
+                        canvas.width = max_width; canvas.height = img.height * scale;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+                        socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
+                        input.value = ""; 
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function xoaSachManHinhTroChuyen() {
+            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn ở phía bạn không?")) {
+                khungChat.innerHTML = ""; 
+                localStorage.removeItem('lichSuChat_Local'); 
+                localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now().toString());
+            }
+        }
+
+        oNhap.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") { guiTinNhan(); }
+        });
+
+        function taoNoiDungTinNhanHtml(chu) {
+            const bieuThucLink = /(https?:\/\/[^\s]+)/g;
+            const cacLink = chu.match(bieuThucLink);
+            if (cacLink) {
+                let linkGoc = cacLink;
+                if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be') || linkGoc.includes('tiktok.com')) {
+                    return `<a href="${linkGoc}" target="_blank" class="link-lien-ket">Bấm vào để xem video 🎬</a>`;
+                }
+            }
+            return ""; 
+        }
+        // 🛠️ TÍNH NĂNG ĐỘC QUYỀN TRÊN INDEX2: Xử lý bật/tắt luồng máy ảnh phần cứng độc lập
+        let luongCamHardware = null;
+        const khoiCameraPhu = document.getElementById('khoi-camera-phu');
+        const khungSoiCam = document.getElementById('khung-soi-cam');
+
+        async function xuLyCongTacCamera() {
+            if (!daDangNhapThanhCong) {
+                alert("Vui lòng Đăng nhập tên tài khoản vào phòng chat trước khi mở Camera!");
+                return;
+            }
+            // Nếu cam đang bật -> Thực hiện ngắt luồng và ẩn khung hình
+            if (luongCamHardware) {
+                tatHarnCameraPhanCung();
+            } 
+            // Nếu cam đang tắt -> Xin quyền khởi động máy ảnh
+            else {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    try {
+                        luongCamHardware = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+                            audio: false
+                        });
+                        khungSoiCam.srcObject = luongCamHardware;
+                        khoiCameraPhu.style.display = 'block'; 
+                    } catch (error) {
+                        console.error(error);
+                        alert("Không thể mở máy ảnh! Vui lòng kiểm tra quyền thiết bị.");
+                    }
+                } else {
+                    alert("Trình duyệt không hỗ trợ Webcam!");
+                }
+            }
+        }
+
+        function tatHarnCameraPhanCung() {
+            if (luongCamHardware) {
+                luongCamHardware.getTracks().forEach(track => track.stop()); 
+                luongCamHardware = null;
+            }
+            khungSoiCam.srcObject = null;
+            khoiCameraPhu.style.display = 'none'; 
+        }
+
+        function xuLyChupVaGuiAnhWebcam() {
+            if (luongCamHardware && daDangNhapThanhCong) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = 500;
+                canvas.height = khungSoiCam.videoHeight * (500 / khungSoiCam.videoWidth);
+                
+                // Hiệu ứng lật gương ảnh chụp cho tự nhiên
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                
+                ctx.drawImage(khungSoiCam, 0, 0, canvas.width, canvas.height);
+                const dataUrlWebcam = canvas.toDataURL('image/jpeg', 0.6); // Nén nhẹ 60%
+                
+                socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: dataUrlWebcam });
+                tatHarnCameraPhanCung(); // Chụp xong tự động tắt cam để gọn máy
+            }
+        }
+
+        function hienThiTinNhanLenKhungChat(data) {
+            let dongTinNhan = document.createElement('div');
+            dongTinNhan.className = 'tin-nhan';
+            if (data.loai === 'chu') {
+                let theLinkHtml = taoNoiDungTinNhanHtml(data.chu);
+                if (theLinkHtml !== "") {
+                    dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> ${theLinkHtml}`;
+                } else {
+                    dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> <span></span>`;
+                    dongTinNhan.querySelector('span').innerText = data.chu;
+                }
+            } else if (data.loai === 'anh') {
+                dongTinNhan.innerHTML = `<strong>${data.ten}:</strong><img src="${data.chu}" class="anh-chat"/>`;
+            }
+            khungChat.appendChild(dongTinNhan);
+            khungChat.scrollTop = khungChat.scrollHeight;
+        }
+
+        socket.on('tin_nhan_moi_tu_server', function(data) {
+            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
+            if (data.thoiGian > mocThoiGianAn) hienThiTinNhanLenKhungChat(data);
+            let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
+            lichSuNoiBo.push(data);
+            if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
+            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
+            if (Notification.permission === "granted") {
+                new Notification(`Tin nhắn mới từ ${data.ten}`, { body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", icon: "https://flaticon.com" });
+            }
+        });
+    </script>
+</body>
+</html>
