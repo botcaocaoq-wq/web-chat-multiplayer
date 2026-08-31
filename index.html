@@ -206,7 +206,7 @@
         oNhap.addEventListener("keypress", function(event) {
             if (event.key === "Enter") { guiTinNhan(); }
         });
-        // 🛠️ ĐÃ SỬA SẠCH LỖI: Nhận diện chuẩn xác ID YouTube Shorts, Video dài, TikTok và vẽ Ảnh an toàn
+        // 🛠️ ĐÃ SỬA LỖI: Sửa lại cú pháp mảng bóc tách ID động để khắc phục lỗi không tìm thấy IP máy chủ YouTube
         function taoNoiDungTinNhanHtml(chu) {
             const bieuThucLink = /(https?:\/\/[^\s]+)/g;
             const cacLink = chu.match(bieuThucLink);
@@ -214,18 +214,19 @@
             if (cacLink) {
                 let linkGoc = cacLink[0]; 
                 
+                // 1. TRÍCH XUẤT VÀ KIỂM TRA LINK YOUTUBE (Gồm Shorts, Video dài)
                 if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be')) {
                     let idVideoYt = "";
                     
                     if (linkGoc.includes('/shorts/')) {
-                        let catShorts = linkGoc.split('/shorts/')[1];
-                        if (catShorts) idVideoYt = catShorts.split('?')[0];
+                        let phanDoanShorts = linkGoc.split('/shorts/');
+                        if (phanDoanShorts[1]) idVideoYt = phanDoanShorts[1].split('?')[0];
                     } else if (linkGoc.includes('v=')) {
-                        let catV = linkGoc.split('v=')[1];
-                        if (catV) idVideoYt = catV.split('&')[0];
+                        let phanDoanV = linkGoc.split('v=');
+                        if (phanDoanV[1]) idVideoYt = phanDoanV[1].split('&')[0];
                     } else if (linkGoc.includes('youtu.be/')) {
-                        let catDuoi = linkGoc.split('youtu.be/')[1];
-                        if (catDuoi) idVideoYt = catDuoi.split('?')[0];
+                        let phanDoanDuoi = linkGoc.split('youtu.be/');
+                        if (phanDoanDuoi[1]) idVideoYt = phanDoanDuoi[1].split('?')[0];
                     }
                     
                     if (idVideoYt) {
@@ -233,11 +234,12 @@
                     }
                 }
                 
+                // 2. TRÍCH XUẤT VÀ KIỂM TRA LINK TIKTOK
                 if (linkGoc.includes('tiktok.com')) {
                     let idVideoTiktok = "";
                     if (linkGoc.includes('/video/')) {
-                        let catTk = linkGoc.split('/video/')[1];
-                        if (catTk) idVideoTiktok = catTk.split('?')[0];
+                        let phanDoanTk = linkGoc.split('/video/');
+                        if (phanDoanTk[1]) idVideoTiktok = phanDoanTk[1].split('?')[0];
                     }
                     if (idVideoTiktok) {
                         return `<span style="display:block;margin-bottom:3px;">[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{idVideoTiktok}" allowfullscreen></iframe>`;
