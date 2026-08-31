@@ -19,8 +19,8 @@
 
     <h3>KHUNG TIN NHẮN MULTIPLAYER</h3>
     
-    <!-- Nút bấm xin quyền thông báo hệ thống -->
-    <button id="nut-xin-quyen" onclick="xinQuyenThongBao()">🔔 Bấm vào đây để Bật thông báo đẩy</button>
+    <!-- Nút bấm bắt buộc để cài bộ chạy ngầm nhận thông báo đẩy cho điện thoại -->
+    <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
     
     <div id="khung-chat"></div>
     
@@ -34,25 +34,47 @@
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
 
-        // Hàm xin quyền thông báo
-        function xinQuyenThongBao() {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    alert("Đã bật thông báo thành công!");
+        // Hàm kích hoạt bộ chạy ngầm gửi tin nhắn lên server Render
+        async function kichHoatChayNgam() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        alert('Bạn cần cấp quyền thông báo!');
+                        return;
+                    }
+
+                    const response = await fetch('/vapid-public-key');
+                    const publicKey = await response.text();
+                    
+                    const sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: publicKey
+                    });
+
+                    await fetch('/luu-thong-bao', {
+                        method: 'POST',
+                        body: JSON.stringify(sub),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    alert('Kích hoạt chạy ngầm thành công! Giờ tắt web đi điện thoại vẫn nhận thông báo nhé.');
                     document.getElementById('nut-xin-quyen').style.display = 'none';
+                } catch (error) {
+                    console.error('Lỗi thiết lập chạy ngầm:', error);
                 }
-            });
+            } else {
+                alert('Trình duyệt này không hỗ trợ tính năng chạy ngầm.');
+            }
         }
 
-        if (Notification.permission === "granted") {
-            document.getElementById('nut-xin-quyen').style.display = 'none';
-        }
-
-        // Hàm gửi tin nhắn đơn giản, không kèm ID loằng ngoằng
+        // Hàm gửi tin nhắn đơn giản, không kèm ID hay Tên loằng ngoằng
         function guiTinNhan() {
             let noiDung = oNhap.value.trim();
             if (noiDung !== "") {
-                socket.emit('gui_tin_nhan_mau', noiDung);
+                // Định dạng gói chat đơn giản gửi lên server
+                socket.emit('gui_tin_nhan_mau', { ten: "Ai đó", chu: noiDung });
                 oNhap.value = "";
                 oNhap.focus();
             }
@@ -64,19 +86,17 @@
             }
         });
 
-        // NHẬN TIN NHẮN: Cứ có tin từ server là bắn thông báo thẳng lên màn hình luôn!
-        socket.on('tin_nhan_moi_tu_server', function(msg) {
-            // 1. Hiện chữ vào khung chat trên web
+        // NHẬN TIN NHẮN TRÊN MÁY TÍNH: Cứ có tin là tự bắn thông báo lập tức
+        socket.on('tin_nhan_moi_tu_server', function(data) {
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
-            dongTinNhan.innerText = msg;
+            dongTinNhan.innerText = data.chu;
             khungChat.appendChild(dongTinNhan);
             khungChat.scrollTop = khungChat.scrollHeight;
 
-            // 2. Bắn banner thông báo đen ở góc màn hình máy tính / điện thoại ngay lập tức
             if (Notification.permission === "granted") {
                 new Notification("Phòng Chat Có Tin Nhắn Mới!", {
-                    body: msg,
+                    body: data.chu,
                     icon: "https://flaticon.com"
                 });
             }
