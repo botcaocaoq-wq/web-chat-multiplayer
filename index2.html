@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phòng Chat WebRTC Toàn Diện - Sửa Lỗi Hiển Thị</title>
+    <title>Phòng Chat WebRTC Toàn Diện - Chuẩn Kiểu Zoom</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
@@ -32,7 +32,7 @@
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
 
-        /* LƯỚI VIDEO PHẢI: Hiển thị tối đa 3 ô (Bạn + 2 người khác) */
+        /* LƯỚI VIDEO PHẢI: Tự động dàn đều các ô camera theo thời gian thực */
         #khoi-camera-phu { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
@@ -197,14 +197,22 @@
 
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
         function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
+        // CƠ CHẾ ZOOM: Khi người B vào sau, server trả về danh sách các cam đang bật (danhSachCam)
+        // Người B nhận danh sách này và CHỦ ĐỘNG tạo cuộc gọi (taoOffer = true) gửi cho người A
         socket.on('dong_bo_tat_ca_camera_hieng_tai', (danhSachCam) => {
             Object.keys(danhSachCam).forEach(idSocket => {
-                if (idSocket !== socket.id) thietLapWebRTCPeer(idSocket, danhSachCam[idSocket], true);
+                if (idSocket !== socket.id) {
+                    thietLapWebRTCPeer(idSocket, danhSachCam[idSocket], true);
+                }
             });
         });
 
+        // Khi một máy khác chủ động bật camera lên
         socket.on('co_nguoi_vua_bat_camera', (data) => {
-            if (data.idSocket !== socket.id) thietLapWebRTCPeer(data.idSocket, data.ten, false);
+            if (data.idSocket !== socket.id) {
+                // Không tạo offer tự động ở đây để tránh bị xung đột đè gói bắt tay song phương
+                thietLapWebRTCPeer(data.idSocket, data.ten, false);
+            }
         });
 
         socket.on('co_nguoi_vua_tat_camera', (data) => {
@@ -215,40 +223,48 @@
             }
         });
 
-        function thietLapWebRTCPeer(idNguoiNhan, tenNguoiDung, taoOffer) {
-            if (peerConnections[idNguoiNhan]) return;
+        // Hàm khởi dựng đường truyền ngang hàng WebRTC
+        function thietLapWebRTCPeer(idDoiPhuong, tenNguoiDung, taoOffer) {
+            if (peerConnections[idDoiPhuong]) return;
 
             const pc = new RTCPeerConnection(rtcConfig);
-            peerConnections[idNguoiNhan] = pc;
+            peerConnections[idDoiPhuong] = pc;
 
+            // Nếu máy hiện tại đang bật Cam/Màn hình thì nạp track để gửi đi cho máy kia
             if (localStream) {
                 localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
             }
 
             pc.onicecandidate = (e) => {
                 if (e.candidate) {
-                    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idNguoiNhan, type: 'candidate', candidate: e.candidate });
+                    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idDoiPhuong, type: 'candidate', candidate: e.candidate });
                 }
             };
 
-            // HIỂN THỊ LUỒNG TỪ TAB KHÁC
+            // Khi nhận được luồng stream truyền về từ máy đối phương -> Đổ thẳng lên màn hình
             pc.ontrack = (e) => {
-                if (e.streams && e.streams[0]) {
-                    themKhoiVideoElements(idNguoiNhan, e.streams[0], tenNguoiDung, false);
+                if (e.streams && e.streams) {
+                    themKhoiVideoElements(idDoiPhuong, e.streams, tenNguoiDung, false);
                 }
             };
 
+            // Nếu được chỉ định làm máy chủ động gọi (dành cho người vào sau)
             if (taoOffer) {
-                pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-                    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idNguoiNhan, type: 'offer', sdp: pc.localDescription });
-                });
+                pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true })
+                    .then(offer => pc.setLocalDescription(offer))
+                    .then(() => {
+                        socket.emit('rtc_tin_hieu_chuyen_tiep', { to: idDoiPhuong, type: 'offer', sdp: pc.localDescription });
+                    });
             }
         }
 
+        // Định tuyến xử lý các gói bắt tay kỹ thuật
         socket.on('rtc_tin_hieu_nhan_ve', async (data) => {
             let pc = peerConnections[data.sender];
+            
             if (!pc && data.type === 'offer') {
-                thietLapWebRTCPeer(data.sender, "Người dùng", false);
+                // Khi người A nhận được Offer từ người B vào sau, tạo PeerConnection để phản hồi
+                thietLapWebRTCPeer(data.sender, "Người dùng khác", false);
                 pc = peerConnections[data.sender];
             }
             if (!pc) return;
@@ -265,7 +281,7 @@
             }
         });
 
-        // CÔNG TẮC SỬA LỖI: Gọi trực tiếp localStream nạp vào HTML không thông qua cổng pc.ontrack
+        // Công tắc xử lý bật/tắt thiết bị của chính bạn
         async function xuLyCongTacThietBi(loaiYeuCau) {
             const tenUser = oTen.value.trim();
 
@@ -296,10 +312,11 @@
                     localStream.getVideoTracks().onended = () => { tatXongGiaiPhongThietBi(); };
                 }
 
-                // FIX LỖI: Ép hiển thị trực tiếp bằng localStream nội bộ ngay lập tức tại tab 1
+                // Hiển thị lập tức camera của chính bạn tại tab bạn bấm nút
                 const nhanHienThi = loaiYeuCau === 'screen' ? "Bạn (Đang chia sẻ màn hình)" : "Bạn (Camera)";
                 themKhoiVideoElements("my-local-video", localStream, nhanHienThi, laHieuUngGuong);
 
+                // Khai báo lên server để server ghi nhận máy bạn đang phát trực tiếp
                 socket.emit('xin_phep_bat_camera_server', { ten: loaiYeuCau === 'screen' ? `${tenUser} (Màn hình)` : tenUser }, (res) => {
                     if (!res.allowed) {
                         alert(res.msg);
@@ -307,7 +324,7 @@
                     }
                 });
 
-                // Cập nhật track và ép tái tạo Offer bắt tay để ép các tab khác bắt buộc phải render hình ảnh
+                // Ép gửi track và kích hoạt thương lượng lại đối với các máy đã kết nối sẵn trong phòng
                 Object.keys(peerConnections).forEach(id => {
                     const pc = peerConnections[id];
                     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -317,7 +334,7 @@
                 });
 
             } catch (err) {
-                alert('Không thể kết nối thiết bị!');
+                alert('Không thể truy cập thiết bị đầu vào!');
                 tatXongGiaiPhongThietBi();
             }
         }
@@ -331,6 +348,7 @@
             socket.emit('chu_dong_tat_camera_server');
         }
 
+        // Tạo thẻ video HTML động nạp luồng stream hình ảnh chuẩn xác
         function themKhoiVideoElements(id, stream, labelText, MirrorEffect) {
             if (document.getElementById(id)) {
                 document.getElementById(id).querySelector('video').srcObject = stream;
@@ -342,7 +360,7 @@
             
             video.autoplay = true; 
             video.playsInline = true; 
-            video.muted = (id === "my-local-video"); 
+            video.muted = (id === "my-local-video"); // Muted tiếng chính mình để không bị vọng âm rú loa
             video.srcObject = stream;
             
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
