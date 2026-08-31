@@ -2,19 +2,20 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
-    maxHttpBufferSize: 1e7 // Cho phép gửi nhận file dữ liệu/hình ảnh dung lượng lên tới 10MB
+    maxHttpBufferSize: 1e7 // Cho phép truyền ảnh dung lượng tối đa 10MB
 });
 const webpush = require('web-push');
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// SỬA TẠI ĐÂY: Thay thế bộ chìa khóa VAPID chuẩn 65-bytes để không bị sập Server
-const publicVapidKey = 'BEl6mE7mAxjKgapvOCnywCEgGxcAsC9G5ZEi8R9b8qID8l_X8_Z4mOB2_I-P-rV5e_uQJ8vXm_gGgP_z8g8M8A';
-const privateVapidKey = '6F_38W3kX39B_g-Yg8xX39B_g-Yg8xX39B_g-Yg8xX0';
+// 🛠️ GIẢI PHÁP TRIỆT ĐỂ: Tự động tạo cặp khóa chuẩn 65 bytes khi khởi động server
+const vapidKeys = webpush.generateVAPIDKeys();
+const publicVapidKey = vapidKeys.publicKey;
+const privateVapidKey = vapidKeys.privateKey;
 
 webpush.setVapidDetails(
-  'mailto:botcaocaoq@gmail.com', // Email định danh chính thức của bạn để vượt tường lửa điện thoại
+  'mailto:botcaocaoq@gmail.com', // Email định danh chính thức của bạn
   publicVapidKey,
   privateVapidKey
 );
@@ -25,7 +26,7 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
 
-// Trả về đúng khóa cố định cho trình duyệt nhận diện
+// Trả về đúng khóa tự động sinh cho trình duyệt nhận diện
 app.get('/vapid-public-key', (req, res) => {
     res.send(publicVapidKey);
 });
@@ -45,7 +46,7 @@ io.on('connection', (socket) => {
     socket.on('gui_tin_nhan_mau', (data) => {
         console.log('Server nhận được tin nhắn từ ' + data.ten + ': ' + data.chu);
         
-        // SỬA CHÍNH XÁC Ở ĐÂY: Phát lại dữ liệu ra phòng kèm theo mã máy idSocketNguoiGui và idNguoiGui (cho điện thoại)
+        // Phát lại dữ liệu ra phòng kèm theo mã máy idSocketNguoiGui và idNguoiGui
         io.emit('tin_nhan_moi_tu_server', {
             ten: data.ten,
             chu: data.chu,
