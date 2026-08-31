@@ -6,55 +6,104 @@
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #khung-chat { width: 400px; height: 300px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
-        
-        /* CSS cho thanh nhập và nút gửi nằm cùng hàng */
-        #vung-nhap { display: flex; width: 422px; gap: 5px; }
+        #vung-nhap { display: flex; width: 422px; gap: 5px; flex-direction: column; }
+        .hang-nhap { display: flex; gap: 5px; }
+        #o-ten { width: 100px; padding: 10px; font-size: 16px; border: 1px solid #555; background: #555; color: white; border-radius: 4px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
-        
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; }
+        .ten-nguoi-gui { color: #00ffb7; font-weight: bold; }
+        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
     <h3>KHUNG TIN NHẮN MULTIPLAYER</h3>
+    
+    <!-- Nút bấm bắt buộc để cài đặt bộ chạy ngầm vào máy tính -->
+    <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
+    
     <div id="khung-chat"></div>
     
-    <!-- Thay đổi ở đây: Thêm ô nhập chữ và nút gửi -->
     <div id="vung-nhap">
-        <input type="text" id="o-nhap" placeholder="Nhập tin nhắn ở đây..." autocomplete="off">
-        <button id="nut-gui" onclick="guiTinNhan()">Gửi</button>
+        <div class="hang-nhap">
+            <input type="text" id="o-ten" placeholder="Tên bạn" value="Ẩn danh" autocomplete="off">
+            <input type="text" id="o-nhap" placeholder="Nhập tin nhắn ở đây..." autocomplete="off">
+            <button id="nut-gui" onclick="guiTinNhan()">Gửi</button>
+        </div>
     </div>
 
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
+        const oTen = document.getElementById('o-ten');
 
-        // Hàm xử lý khi bấm nút Gửi
-        function guiTinNhan() {
-            let noiDung = oNhap.value.trim(); // Lấy chữ trong ô nhập và xóa khoảng trắng thừa
-            
-            if (noiDung !== "") { // Nếu ô nhập không bị trống thì mới gửi
-                socket.emit('gui_tin_nhan_mau', noiDung);
-                oNhap.value = ""; // Gửi xong thì xóa sạch chữ trong ô nhập để nhập câu mới
-                oNhap.focus(); // Đưa con trỏ chuột quay lại ô nhập dữ liệu
+        // Hàm đăng ký chạy ngầm dưới Windows
+        async function kichHoatChayNgam() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    // 1. Cài đặt file sw.js chạy ẩn vào hệ thống
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    
+                    // 2. Xin quyền thông báo
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        alert('Bạn cần cấp quyền thông báo thì tính năng này mới chạy được!');
+                        return;
+                    }
+
+                    // 3. Lấy chìa khóa từ server đám mây về mã hóa thiết bị
+                    const response = await fetch('/vapid-public-key');
+                    const publicKey = await response.text();
+                    
+                    // 4. Đăng ký nhận thông báo đẩy ngầm công khai
+                    const sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: publicKey
+                    });
+
+                    // 5. Gửi thông tin định danh thiết bị của bạn lên server Render lưu trữ
+                    await fetch('/luu-thong-bao', {
+                        method: 'POST',
+                        body: JSON.stringify(sub),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    alert('Kích hoạt chạy ngầm thành công! Giờ bạn tắt web đi vẫn nhận được thông báo nhé.');
+                    document.getElementById('nut-xin-quyen').style.display = 'none';
+
+                } catch (error) {
+                    console.error('Lỗi thiết lập chạy ngầm:', error);
+                }
+            } else {
+                alert('Trình duyệt này không hỗ trợ tính năng chạy ngầm.');
             }
         }
 
-        // Mẹo nhỏ: Bấm phím Enter trên bàn phím cũng gửi được tin nhắn luôn
+        function guiTinNhan() {
+            let bieuTen = oTen.value.trim() || "Ẩn danh";
+            let noiDung = oNhap.value.trim();
+            
+            if (noiDung !== "") {
+                socket.emit('gui_tin_nhan_mau', { ten: bieuTen, chu: noiDung });
+                oNhap.value = "";
+                oNhap.focus();
+            }
+        }
+
         oNhap.addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 guiTinNhan();
             }
         });
 
-        socket.on('tin_nhan_moi_tu_server', function(msg) {
+        socket.on('tin_nhan_moi_tu_server', function(data) {
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
-            dongTinNhan.innerText = msg;
+            dongTinNhan.innerHTML = `<span class="ten-nguoi-gui">[${data.ten}]:</span> ${data.chu}`;
             khungChat.appendChild(dongTinNhan);
             khungChat.scrollTop = khungChat.scrollHeight;
         });
