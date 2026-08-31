@@ -7,7 +7,6 @@
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         
-        /* Cấu hình vùng nhập chứa cả ô viết, nút ghim, nút gửi và nút xóa hình vuông */
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
@@ -18,7 +17,6 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
         
-        /* Thu nhỏ nút xóa thành hình vuông nhỏ gọn nằm sát nút gửi */
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; aspect-ratio: 1/1; }
         #nut-xoa-man-hinh:hover { background: #c62828; }
 
@@ -30,6 +28,12 @@
         
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
+        
+        /* 🛠️ THÊM CSS MỚI: Khung nhúng thông minh cho YouTube và TikTok */
+        .iframe-video-nhung { max-width: 320px; width: 100%; height: 180px; border: none; border-radius: 5px; margin-top: 5px; display: block; background: #000; }
+        /* Tối ưu riêng chiều cao cho khung dọc đặc trưng của TikTok Shorts */
+        .iframe-tiktok { height: 400px; max-width: 250px; }
+
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
@@ -43,12 +47,10 @@
     <div id="khung-chat"></div>
     
     <div id="vung-nhap">
-        <input type="text" id="o-nhap" placeholder="Nhập tin nhắn ở đây..." autocomplete="off" disabled>
+        <input type="text" id="o-nhap" placeholder="Dán duy nhất link YouTube hoặc TikTok..." autocomplete="off" disabled>
         <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
-        
-        <!-- Nút xóa hình vuông nằm ở cuối vùng nhập -->
         <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
     </div>
 
@@ -76,7 +78,6 @@
                 xuLyXacThucTaiKhoan(); 
             }
             
-            // Lọc lại lịch sử lưu trong máy theo mốc thời gian ẩn
             let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.forEach(data => {
@@ -116,26 +117,21 @@
         }
 
         function xuLyDoiTaiKhoan() {
-            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không? (Mọi tài khoản cũ vẫn giữ nguyên trên hệ thống)")) {
+            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không?")) {
                 daDangNhapThanhCong = false;
-                
                 oNhap.disabled = true;
                 document.getElementById('nut-chon-anh').disabled = true;
                 document.getElementById('nut-gui').disabled = true;
                 oNhap.value = "";
-                
                 localStorage.removeItem('saved_username');
                 localStorage.removeItem('saved_password');
-                
                 oTen.value = "";
                 oMatKhau.value = "";
-                
                 vungTaiKhoan.style.display = 'flex';
                 nutDoiTk.style.display = 'none';
             }
         }
 
-        // Nhận lịch sử đồng bộ từ server và chỉ hiển thị những tin nhắn được tạo SAU mốc bấm nút xóa
         socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
             khungChat.innerHTML = ""; 
             let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
@@ -159,11 +155,7 @@
                     const response = await fetch('/vapid-public-key');
                     const publicKey = await response.text();
                     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey });
-                    await fetch('/luu-thong-bao', {
-                        method: 'POST',
-                        body: JSON.stringify(sub),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    await fetch('/luu-thong-bao', { method: 'POST', body: JSON.stringify(sub), headers: { 'Content-Type': 'application/json' } });
                     alert('Kích hoạt chạy ngầm thành công!');
                     document.getElementById('nut-xin-quyen').style.display = 'none';
                 } catch (error) { console.error(error); }
@@ -185,7 +177,6 @@
             if (input.files && input.files) {
                 const file = input.files;
                 const reader = new FileReader();
-                
                 reader.onload = function(e) {
                     const img = new Image();
                     img.src = e.target.result;
@@ -196,10 +187,8 @@
                         const scale = max_width / img.width;
                         canvas.width = max_width;
                         canvas.height = img.height * scale;
-                        
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
-                        
                         socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
                         input.value = ""; 
                     };
@@ -208,13 +197,10 @@
             }
         }
 
-        // 🛠️ ĐÃ SỬA CHÍNH XÁC: Chỉ xóa phía tôi, không ảnh hưởng người khác, load lại trang không bị hiện lại
         function xoaSachManHinhTroChuyen() {
-            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn hiện tại ở phía bạn không? (Người khác vẫn sẽ nhìn thấy bình thường)")) {
-                khungChat.innerHTML = ""; // Làm sạch khung chat lập tức
-                localStorage.removeItem('lichSuChat_Local'); // Xóa bộ nhớ đệm
-                
-                // Đặt mốc thời gian chặn: Từ nay về sau máy này sẽ ẩn hết tin nhắn được tạo trước giây phút này
+            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn hiện tại ở phía bạn không?")) {
+                khungChat.innerHTML = ""; 
+                localStorage.removeItem('lichSuChat_Local'); 
                 localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now().toString());
             }
         }
@@ -223,12 +209,56 @@
             if (event.key === "Enter") { guiTinNhan(); }
         });
 
+        // 🛠️ HÀM NÂNG CẤP: Kiểm tra nghiêm ngặt, CHỈ chấp nhận chuyển đổi link YouTube hoặc TikTok
+        function taoNoiDungTinNhanHtml(chu) {
+            const bieuThucLink = /(https?:\/\/[^\s]+)/g;
+            const cacLink = chu.match(bieuThucLink);
+            
+            if (cacLink) {
+                let linkGoc = cacLink;
+                
+                // 1. KIỂM TRA LINK YOUTUBE
+                if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be')) {
+                    let idVideoYt = "";
+                    if (linkGoc.includes('v=')) {
+                        idVideoYt = linkGoc.split('v=')[1].split('&')[0];
+                    } else if (linkGoc.includes('youtu.be/')) {
+                        idVideoYt = linkGoc.split('youtu.be/')[1].split('?')[0];
+                    } else if (linkGoc.includes('embed/')) {
+                        idVideoYt = linkGoc.split('embed/')[1].split('?')[0];
+                    }
+                    if (idVideoYt) {
+                        return `<span>[YouTube]:</span><iframe class="iframe-video-nhung" src="https://youtube.com{idVideoYt}" allowfullscreen></iframe>`;
+                    }
+                }
+                
+                // 2. KIỂM TRA LINK TIKTOK
+                if (linkGoc.includes('tiktok.com')) {
+                    let idVideoTiktok = "";
+                    // Xử lý link dạng web máy tính: ://tiktok.com
+                    if (linkGoc.includes('/video/')) {
+                        idVideoTiktok = linkGoc.split('/video/')[1].split('?')[0];
+                    }
+                    
+                    if (idVideoTiktok) {
+                        return `<span>[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{idVideoTiktok}" allowfullscreen></iframe>`;
+                    } else {
+                        // Nếu là link rút gọn trên điện thoại (://tiktok.com / ://tiktok.com), nhúng trình phát xem tạm
+                        return `<span>[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{encodeURIComponent(linkGoc)}" allowfullscreen></iframe>`;
+                    }
+                }
+            }
+            // Tuyệt đối không xử lý các loại link khác, giữ nguyên chữ thô để bảo mật chống phá web
+            return document.createTextNode(chu).textContent;
+        }
+
         function hienThiTinNhanLenKhungChat(data) {
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
 
             if (data.loai === 'chu') {
-                dongTinNhan.innerText = `${data.ten}: ${data.chu}`;
+                let noiDungXuly = taoNoiDungTinNhanHtml(data.chu);
+                dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> ${noiDungXuly}`;
             } else if (data.loai === 'anh') {
                 dongTinNhan.innerHTML = `<strong>${data.ten}:</strong><img src="${data.chu}" class="anh-chat"/>`;
             }
@@ -238,19 +268,20 @@
         }
 
         socket.on('tin_nhan_moi_tu_server', function(data) {
-            // Chỉ hiển thị tin nhắn mới nếu nó không nằm trong vùng thời gian bị chặn xóa trước đó
             let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             if (data.thoiGian > mocThoiGianAn) {
                 hienThiTinNhanLenKhungChat(data);
             }
-
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.push(data);
             if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
             localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
 
             if (Notification.permission === "granted") {
-                new Notification(`Tin nhắn mới từ ${data.ten}`, { body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", icon: "https://flaticon.com" });
+                new Notification(`Tin nhắn mới từ ${data.ten}`, { 
+                    body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", 
+                    icon: "https://flaticon.com" 
+                });
             }
         });
     </script>
