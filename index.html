@@ -7,6 +7,7 @@
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         
+        /* Cấu hình vùng nhập chứa cả ô viết, nút ghim, nút gửi và nút xóa hình vuông */
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
@@ -17,19 +18,16 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
         
-        /* Cấu hình cụm tài khoản mật khẩu bên dưới */
+        /* Thu nhỏ nút xóa thành hình vuông nhỏ gọn nằm sát nút gửi */
+        #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; aspect-ratio: 1/1; }
+        #nut-xoa-man-hinh:hover { background: #c62828; }
+
         #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
         .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
         
-        /* Nút đổi tài khoản mới: ẩn lúc đầu, hiện khi đăng nhập xong */
         #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
         
-        /* Cụm nút chức năng bên dưới khung chat */
-        #cum-chuc-nang { width: 422px; display: flex; gap: 5px; margin-top: 5px; }
-        #nut-xoa-man-hinh { flex: 1; padding: 8px; background: #e53935; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
-        #nut-xoa-man-hinh:hover { background: #c62828; }
-
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
@@ -49,21 +47,18 @@
         <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
+        
+        <!-- Nút xóa hình vuông nằm ở cuối vùng nhập -->
+        <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
     </div>
 
-    <!-- KHU VỰC TÀI KHOẢN MẬT KHẨU NẰM Ở DƯỚI CÙNG -->
     <div id="vung-tai-khoan">
         <input type="text" id="o-ten" class="o-dang-nhap" placeholder="Nhập Nickname..." autocomplete="off">
         <input type="password" id="o-mat-khau" class="o-dang-nhap" placeholder="Mật khẩu tài khoản..." autocomplete="off">
         <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
     </div>
     
-    <!-- Nút bấm Đổi tài khoản để thoát phiên hiện tại -->
     <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
-
-    <div id="cum-chuc-nang">
-        <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹 XÓA TIN NHẮN TRÊN MÀN HÌNH</button>
-    </div>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -74,7 +69,6 @@
         const nutDoiTk = document.getElementById('nut-doi-tk');
         let daDangNhapThanhCong = false;
 
-        // Tự động khôi phục dữ liệu đã lưu khi mở trang web lên
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
@@ -82,11 +76,16 @@
                 xuLyXacThucTaiKhoan(); 
             }
             
+            // Lọc lại lịch sử lưu trong máy theo mốc thời gian ẩn
+            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
-            lichSuNoiBo.forEach(data => hienThiTinNhanLenKhungChat(data));
+            lichSuNoiBo.forEach(data => {
+                if (data.thoiGian > mocThoiGianAn) {
+                    hienThiTinNhanLenKhungChat(data);
+                }
+            });
         });
 
-        // Hàm xử lý xác thực tài khoản/mật khẩu
         function xuLyXacThucTaiKhoan() {
             const ten = oTen.value.trim();
             const matKhau = oMatKhau.value;
@@ -106,7 +105,6 @@
                     localStorage.setItem('saved_username', ten);
                     localStorage.setItem('saved_password', matKhau);
                     
-                    // Ẩn vùng đăng nhập và hiện nút thoát tài khoản để đổi account
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
 
@@ -117,9 +115,8 @@
             });
         }
 
-        // Hàm xử lý Đổi tài khoản khác (Chỉ thoát phiên đăng nhập ở trình duyệt của bạn)
         function xuLyDoiTaiKhoan() {
-            if(confirm("Bạn có chắc chắn muốn thoát tài khoản hiện tại để đổi tài khoản khác không? (Tài khoản cũ của bạn vẫn được giữ nguyên trên hệ thống)")) {
+            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không? (Mọi tài khoản cũ vẫn giữ nguyên trên hệ thống)")) {
                 daDangNhapThanhCong = false;
                 
                 oNhap.disabled = true;
@@ -127,7 +124,6 @@
                 document.getElementById('nut-gui').disabled = true;
                 oNhap.value = "";
                 
-                // Xóa ghi nhớ tự động cục bộ để đổi thông tin
                 localStorage.removeItem('saved_username');
                 localStorage.removeItem('saved_password');
                 
@@ -139,11 +135,16 @@
             }
         }
 
+        // Nhận lịch sử đồng bộ từ server và chỉ hiển thị những tin nhắn được tạo SAU mốc bấm nút xóa
         socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
             khungChat.innerHTML = ""; 
+            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             let lichSuLuuLocal = [];
+            
             mangTinNhan.forEach(data => {
-                hienThiTinNhanLenKhungChat(data);
+                if (data.thoiGian > mocThoiGianAn) {
+                    hienThiTinNhanLenKhungChat(data);
+                }
                 lichSuLuuLocal.push(data);
             });
             localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuLuuLocal));
@@ -171,7 +172,7 @@
 
         function guiTinNhan() {
             let noiDung = oNhap.value.trim();
-            if (noiDung !== "" && daDangNhapThanhCong) {
+            if (noiDung !== "") {
                 socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: oTen.value.trim(), chu: noiDung });
                 oNhap.value = "";
                 oNhap.focus();
@@ -181,8 +182,8 @@
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
         function guiAnhTuDong(input) {
-            if (input.files && input.files && daDangNhapThanhCong) {
-                const file = input.files[0];
+            if (input.files && input.files) {
+                const file = input.files;
                 const reader = new FileReader();
                 
                 reader.onload = function(e) {
@@ -207,10 +208,14 @@
             }
         }
 
+        // 🛠️ ĐÃ SỬA CHÍNH XÁC: Chỉ xóa phía tôi, không ảnh hưởng người khác, load lại trang không bị hiện lại
         function xoaSachManHinhTroChuyen() {
-            if(confirm("Bạn có chắc chắn muốn dọn sạch toàn bộ tin nhắn đang hiển thị không?")) {
-                khungChat.innerHTML = "";
-                localStorage.removeItem('lichSuChat_Local');
+            if(confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn hiện tại ở phía bạn không? (Người khác vẫn sẽ nhìn thấy bình thường)")) {
+                khungChat.innerHTML = ""; // Làm sạch khung chat lập tức
+                localStorage.removeItem('lichSuChat_Local'); // Xóa bộ nhớ đệm
+                
+                // Đặt mốc thời gian chặn: Từ nay về sau máy này sẽ ẩn hết tin nhắn được tạo trước giây phút này
+                localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now().toString());
             }
         }
 
@@ -233,7 +238,11 @@
         }
 
         socket.on('tin_nhan_moi_tu_server', function(data) {
-            hienThiTinNhanLenKhungChat(data);
+            // Chỉ hiển thị tin nhắn mới nếu nó không nằm trong vùng thời gian bị chặn xóa trước đó
+            let mocThoiGianAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
+            if (data.thoiGian > mocThoiGianAn) {
+                hienThiTinNhanLenKhungChat(data);
+            }
 
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.push(data);
