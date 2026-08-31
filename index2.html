@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phòng WebRTC Live & Screen Share - Index2</title>
+    <title>Phòng WebRTC Đa Chức Năng - Index2</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1100px; }
@@ -55,7 +55,6 @@
         .link-lien-ket { color: #2196f3; text-decoration: underline; font-weight: bold; }
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
 
-        /* Tự động gập dọc khối camera xuống dưới khít màn hình khi lướt điện thoại */
         @media (max-width: 950px) {
             #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
             #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen, #vung-chuc-nang-camera { width: 100% !important; max-width: 422px; }
@@ -82,8 +81,11 @@
             <div id="khung-chat"></div>
             <div id="vung-nhap">
                 <input type="text" id="o-nhap" placeholder="Nhập tin nhắn hoặc dán link video..." autocomplete="off" disabled>
+                
+                <!-- NÚT GHIM GỬI ẢNH ĐƯỢC ĐẶT KHỚP HOÀN TOÀN -->
                 <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
-                <input type="file" id="o-chon-anh" style="display:none;" accept="image/*" onchange="guiAnhTuDong(this)">
+                <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
+                
                 <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
                 <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
             </div>
@@ -97,8 +99,6 @@
 
         <div id="khoi-camera-phu"></div>
     </div>
-    
-    <video id="video-ao-hardware" autoplay playsinline style="display:none;"></video>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -148,6 +148,7 @@
             if(confirm("Bạn có chắc muốn đổi tài khoản không?")) {
                 daDangNhapThanhCong = false;
                 tatHarnCameraPhanCung(); 
+                tatHarnSharePhanCung();
                 oNhap.disabled = true;
                 document.getElementById('nut-chon-anh').disabled = true;
                 document.getElementById('nut-gui').disabled = true;
@@ -193,17 +194,24 @@
             }
         }
 
-        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
+        /* 🛠️ SỬA LỖI: Trả lại hàm kích hoạt ô chọn file ảnh khi bấm kẹp giấy */
+        function kichHoatOChonAnh() { 
+            document.getElementById('o-chon-anh').click(); 
+        }
 
+        /* 🛠️ SỬA LỖI: Trả lại hàm nén và bắn ảnh lên Server */
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
-                const file = input.files;
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const img = new Image(); img.src = e.target.result;
+                    const img = new Image(); 
+                    img.src = e.target.result;
                     img.onload = function() {
-                        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                        canvas.width = 500; canvas.height = img.height * (500 / img.width);
+                        const canvas = document.createElement('canvas'); 
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = 500; 
+                        canvas.height = img.height * (500 / img.width);
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
                         socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
@@ -226,104 +234,91 @@
         function taoNoiDungTinNhanHtml(chu) {
             const bieuThucLink = /(https?:\/\/[^\s]+)/g; const cacLink = chu.match(bieuThucLink);
             if (cacLink) {
-                let linkGoc = cacLink;
+                let linkGoc = cacLink[0];
                 if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be') || linkGoc.includes('tiktok.com')) {
                     return `<a href="${linkGoc}" target="_blank" class="link-lien-ket">Bấm vào để xem video 🎬</a>`;
                 }
             }
             return ""; 
         }
-        // --- HỆ THỐNG WEBRTC P2P KHÔNG DELAY ---
-        let luongCamHardware = null;
-        let loaiHinhDangStream = "cam"; 
+        // --- CẤU HÌNH SONG SONG CAMERA VÀ SHARE MÀN HÌNH WEBRTC ---
+        let luongCamPhanCung = null;
+        let luongSharePhanCung = null;
         let peerConnections = {}; 
         
         const rtcConfig = { iceServers: [{ urls: 'stun:://google.com' }] };
-        
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
-        const videoAoHardware = document.getElementById('video-ao-hardware');
         const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
         const nutCongTacShare = document.getElementById('nut-cong-tac-share');
 
+        // 1. Logic bật/tắt Webcam độc lập
         async function xuLyCongTacCamera() {
-            if (!daDangNhapThanhCong) { alert("Vui lòng đăng nhập trước!"); return; }
-            if (luongCamHardware) {
+            if (!daDangNhapThanhCong) return alert("Vui lòng đăng nhập trước!");
+            if (luongCamPhanCung) {
                 tatHarnCameraPhanCung();
                 socket.emit('chu_dong_tat_camera_server');
             } else {
                 socket.emit('xin_phep_bat_camera_server', { ten: oTen.value.trim() }, async (res) => {
                     if (res.allowed) {
                         try {
-                            loaiHinhDangStream = "cam";
-                            luongCamHardware = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                            videoAoHardware.srcObject = luongCamHardware;
-                            capNhatTrangThaiNutBam(true, false);
-                            capNhatHoacTaoOVideo(socket.id, oTen.value.trim() + " (Bạn)", luongCamHardware, "cam");
-                        } catch (err) { alert("Không thể mở Cam!"); socket.emit('chu_dong_tat_camera_server'); }
+                            luongCamPhanCung = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                            nutCongTacCam.innerText = "🛑 TẮT CAMERA";
+                            nutCongTacCam.style.background = "#d32f2f";
+                            
+                            capNhatHoacTaoOVideo(socket.id + "-cam", oTen.value.trim() + " (Cam)", luongCamPhanCung, "cam");
+                            ioEmitThongBao();
+                        } catch (err) { alert("Không thể mở Cam!"); }
                     } else { alert(res.msg); }
                 });
             }
         }
 
+        // 2. Logic bật/tắt Chia sẻ màn hình độc lập (Có thể chạy chung song song với cam)
         async function xuLyCongTacScreenShare() {
-            if (!daDangNhapThanhCong) { alert("Vui lòng đăng nhập trước!"); return; }
-            if (luongCamHardware) {
-                tatHarnCameraPhanCung();
-                socket.emit('chu_dong_tat_camera_server');
+            if (!daDangNhapThanhCong) return alert("Vui lòng đăng nhập trước!");
+            if (luongSharePhanCung) {
+                tatHarnSharePhanCung();
             } else {
-                socket.emit('xin_phep_bat_camera_server', { ten: oTen.value.trim() }, async (res) => {
-                    if (res.allowed) {
-                        try {
-                            loaiHinhDangStream = "share";
-                            luongCamHardware = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-                            videoAoHardware.srcObject = luongCamHardware;
-                            capNhatTrangThaiNutBam(false, true);
-                            
-                            capNhatHoacTaoOVideo(socket.id, oTen.value.trim() + " [Màn hình]", luongCamHardware, "share");
+                try {
+                    luongSharePhanCung = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                    nutCongTacShare.innerText = "🛑 TẮT CHIA SẺ";
+                    nutCongTacShare.style.background = "#d32f2f";
+                    
+                    capNhatHoacTaoOVideo(socket.id + "-share", oTen.value.trim() + " [Màn hình]", luongSharePhanCung, "share");
+                    ioEmitThongBao();
 
-                            luongCamHardware.getVideoTracks().onended = () => {
-                                tatHarnCameraPhanCung();
-                                socket.emit('chu_dong_tat_camera_server');
-                            };
-                        } catch (err) { alert("Không thể Share màn hình!"); socket.emit('chu_dong_tat_camera_server'); }
-                    } else { alert(res.msg); }
-                });
+                    luongSharePhanCung.getVideoTracks()[0].onended = () => { tatHarnSharePhanCung(); };
+                } catch (err) { alert("Không thể Share màn hình!"); }
             }
         }
 
         function tatHarnCameraPhanCung() {
-            if (luongCamHardware) { luongCamHardware.getTracks().forEach(track => track.stop()); luongCamHardware = null; }
-            videoAoHardware.srcObject = null;
-            xoaOVideoKhoiGiaoDien(socket.id);
-            capNhatTrangThaiNutBam(false, false);
-            
-            Object.keys(peerConnections).forEach(id => {
-                peerConnections[id].close();
-                delete peerConnections[id];
-            });
+            if (luongCamPhanCung) { luongCamPhanCung.getTracks().forEach(track => track.stop()); luongCamPhanCung = null; }
+            xoaOVideoKhoiGiaoDien(socket.id + "-cam");
+            nutCongTacCam.innerText = "📷 BẬT CAMERA";
+            nutCongTacCam.style.background = "#00897b";
         }
 
-        function capNhatTrangThaiNutBam(isCamActive, isShareActive) {
-            if (isCamActive) {
-                nutCongTacCam.innerText = "🛑 TẮT CAMERA"; nutCongTacCam.style.background = "#d32f2f"; nutCongTacShare.disabled = true;
-            } else if (isShareActive) {
-                nutCongTacShare.innerText = "🛑 TẮT CHIA SẺ"; nutCongTacShare.style.background = "#d32f2f"; nutCongTacCam.disabled = true;
-            } else {
-                nutCongTacCam.innerText = "📷 BẬT CAMERA"; nutCongTacCam.style.background = "#00897b"; nutCongTacCam.disabled = false;
-                nutCongTacShare.innerText = "🖥️ CHIA SẺ MÀN HÌNH"; nutCongTacShare.style.background = "#3949ab"; nutCongTacShare.disabled = false;
-            }
+        function tatHarnSharePhanCung() {
+            if (luongSharePhanCung) { luongSharePhanCung.getTracks().forEach(track => track.stop()); luongSharePhanCung = null; }
+            xoaOVideoKhoiGiaoDien(socket.id + "-share");
+            nutCongTacShare.innerText = "🖥️ CHIA SẺ MÀN HÌNH";
+            nutCongTacShare.style.background = "#3949ab";
+        }
+
+        function ioEmitThongBao() {
+            // Phát tín hiệu cho server gộp luồng
         }
 
         function khoiTaoNgoiKetNoiWebRtc(idSocketNguoiKia, tenNguoiKia, isCaller) {
             const pc = new RTCPeerConnection(rtcConfig);
             peerConnections[idSocketNguoiKia] = pc;
 
-            if (luongCamHardware) {
-                luongCamHardware.getTracks().forEach(track => pc.addTrack(track, luongCamHardware));
-            }
+            if (luongCamPhanCung) luongCamPhanCung.getTracks().forEach(track => pc.addTrack(track, luongCamPhanCung));
+            if (luongSharePhanCung) luongSharePhanCung.getTracks().forEach(track => pc.addTrack(track, luongSharePhanCung));
 
             pc.ontrack = (event) => {
-                capNhatHoacTaoOVideo(idSocketNguoiKia, tenNguoiKia, event.streams, "cam");
+                capNhatHoacTaoOVideo(idSocketNguoiKia, tenNguoiKia, event.streams[0], "cam");
             };
 
             pc.onicecandidate = (event) => {
@@ -340,26 +335,25 @@
             return pc;
         }
 
-        function capNhatHoacTaoOVideo(idSocket, ten, luongStreamMedia, loaiStream = "cam") {
-            let oCamDan = document.getElementById(`cam-${idSocket}`);
+        function capNhatHoacTaoOVideo(idDinhDanh, ten, luongStreamMedia, loaiStream = "cam") {
+            let oCamDan = document.getElementById(`cam-${idDinhDanh}`);
             if (!oCamDan) {
-                oCamDan = document.createElement('div'); oCamDan.id = `cam-${idSocket}`; oCamDan.className = 'o-chua-cam-don';
+                oCamDan = document.createElement('div'); oCamDan.id = `cam-${idDinhDanh}`; oCamDan.className = 'o-chua-cam-don';
                 let lopGuong = loaiStream === "cam" ? "video-stream-cam lat-guong" : "video-stream-cam";
-                oCamDan.innerHTML = `<video id="vdo-${idSocket}" class="${lopGuong}" autoplay playsinline></video><div class="nhan-ten-cam">${ten}</div>`;
+                oCamDan.innerHTML = `<video id="vdo-${idDinhDanh}" class="${lopGuong}" autoplay playsinline></video><div class="nhan-ten-cam">${ten}</div>`;
                 khoiCameraPhu.appendChild(oCamDan);
             }
-            const videoThe = document.getElementById(`vdo-${idSocket}`);
+            const videoThe = document.getElementById(`vdo-${idDinhDanh}`);
             if (videoThe && luongStreamMedia) videoThe.srcObject = luongStreamMedia;
         }
 
-        function xoaOVideoKhoiGiaoDien(idSocket) {
-            const oCamDan = document.getElementById(`cam-${idSocket}`); if (oCamDan) oCamDan.remove();
-            if (peerConnections[idSocket]) { peerConnections[idSocket].close(); delete peerConnections[idSocket]; }
+        function xoaOVideoKhoiGiaoDien(idDinhDanh) {
+            const oCamDan = document.getElementById(`cam-${idDinhDanh}`); if (oCamDan) oCamDan.remove();
         }
 
         socket.on('co_nguoi_vua_bat_camera', function(data) {
             if (data.idSocket !== socket.id) {
-                khoiTaoNgoiKetNoiWebRtc(data.idSocket, data.ten, luongCamHardware ? true : false);
+                khoiTaoNgoiKetNoiWebRtc(data.idSocket, data.ten, (luongCamPhanCung || luongSharePhanCung) ? true : false);
             }
         });
 
@@ -380,7 +374,7 @@
             }
         });
 
-        socket.on('co_nguoi_vua_tat_camera', function(data) { xoaOVideoKhoiGiaoDien(data.idSocket); });
+        socket.on('co_nguoi_vua_tat_camera', function(data) { xoaOVideoKhoiGiaoDien(data.idSocket + "-cam"); xoaOVideoKhoiGiaoDien(data.idSocket + "-share"); });
         
         socket.on('dong_bo_tat_ca_camera_hieng_tai', function(danhSachCam) {
             khoiCameraPhu.innerHTML = "";
