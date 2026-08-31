@@ -22,8 +22,12 @@
         .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
         
-        /* Nút xóa toàn bộ tin nhắn phía trên màn hình */
-        #nut-xoa-man-hinh { width: 422px; padding: 8px; background: #e53935; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        /* Nút đổi tài khoản mới: ẩn lúc đầu, hiện khi đăng nhập xong */
+        #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
+        
+        /* Cụm nút chức năng bên dưới khung chat */
+        #cum-chuc-nang { width: 422px; display: flex; gap: 5px; margin-top: 5px; }
+        #nut-xoa-man-hinh { flex: 1; padding: 8px; background: #e53935; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
         #nut-xoa-man-hinh:hover { background: #c62828; }
 
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
@@ -53,26 +57,31 @@
         <input type="password" id="o-mat-khau" class="o-dang-nhap" placeholder="Mật khẩu tài khoản..." autocomplete="off">
         <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
     </div>
+    
+    <!-- Nút bấm Đổi tài khoản để thoát phiên hiện tại -->
+    <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
 
-    <!-- Nút xóa toàn bộ tin nhắn hiển thị trên khung chat -->
-    <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹 XÓA TOÀN BỘ TIN NHẮN PHÍA TRÊN</button>
+    <div id="cum-chuc-nang">
+        <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹 XÓA TIN NHẮN TRÊN MÀN HÌNH</button>
+    </div>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
         const oTen = document.getElementById('o-ten');
         const oMatKhau = document.getElementById('o-mat-khau');
+        const vungTaiKhoan = document.getElementById('vung-tai-khoan');
+        const nutDoiTk = document.getElementById('nut-doi-tk');
         let daDangNhapThanhCong = false;
 
-        // Tự động khôi phục dữ liệu đã lưu từ bộ nhớ máy trình duyệt khi mở web lên
+        // Tự động khôi phục dữ liệu đã lưu khi mở trang web lên
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
                 oMatKhau.value = localStorage.getItem('saved_password');
-                xuLyXacThucTaiKhoan(); // Tự động đăng nhập luôn không cần nhập lại
+                xuLyXacThucTaiKhoan(); 
             }
             
-            // Khôi phục lại lịch sử chat nội bộ máy lưu trữ nếu có
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.forEach(data => hienThiTinNhanLenKhungChat(data));
         });
@@ -90,20 +99,17 @@
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
                 if (res.success) {
                     daDangNhapThanhCong = true;
-                    // Kích hoạt các nút chat mở ra hoạt động
                     oNhap.disabled = false;
                     document.getElementById('nut-chon-anh').disabled = false;
                     document.getElementById('nut-gui').disabled = false;
                     
-                    // Lưu thông tin đăng nhập cố định vào máy để tắt đi bật lại không bị mất form
                     localStorage.setItem('saved_username', ten);
                     localStorage.setItem('saved_password', matKhau);
                     
-                    document.getElementById('vung-tai-khoan').style.opacity = '0.5';
-                    document.getElementById('nut-xac-thuc').innerText = "Đã Vào";
-                    document.getElementById('nut-xac-thuc').disabled = true;
+                    // Ẩn vùng đăng nhập và hiện nút thoát tài khoản để đổi account
+                    vungTaiKhoan.style.display = 'none';
+                    nutDoiTk.style.display = 'block';
 
-                    // Tải toàn bộ tin nhắn lưu trên server về (người vào sau vẫn xem được)
                     socket.emit('lay_lich_su_khi_vao_sau');
                 } else {
                     alert(res.msg);
@@ -111,9 +117,30 @@
             });
         }
 
-        // Nhận lịch sử đồng bộ từ server gửi về khi vừa vào phòng
+        // Hàm xử lý Đổi tài khoản khác (Chỉ thoát phiên đăng nhập ở trình duyệt của bạn)
+        function xuLyDoiTaiKhoan() {
+            if(confirm("Bạn có chắc chắn muốn thoát tài khoản hiện tại để đổi tài khoản khác không? (Tài khoản cũ của bạn vẫn được giữ nguyên trên hệ thống)")) {
+                daDangNhapThanhCong = false;
+                
+                oNhap.disabled = true;
+                document.getElementById('nut-chon-anh').disabled = true;
+                document.getElementById('nut-gui').disabled = true;
+                oNhap.value = "";
+                
+                // Xóa ghi nhớ tự động cục bộ để đổi thông tin
+                localStorage.removeItem('saved_username');
+                localStorage.removeItem('saved_password');
+                
+                oTen.value = "";
+                oMatKhau.value = "";
+                
+                vungTaiKhoan.style.display = 'flex';
+                nutDoiTk.style.display = 'none';
+            }
+        }
+
         socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
-            khungChat.innerHTML = ""; // Xóa dữ liệu cũ để đồng bộ chuẩn từ server về
+            khungChat.innerHTML = ""; 
             let lichSuLuuLocal = [];
             mangTinNhan.forEach(data => {
                 hienThiTinNhanLenKhungChat(data);
@@ -144,7 +171,7 @@
 
         function guiTinNhan() {
             let noiDung = oNhap.value.trim();
-            if (noiDung !== "") {
+            if (noiDung !== "" && daDangNhapThanhCong) {
                 socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: oTen.value.trim(), chu: noiDung });
                 oNhap.value = "";
                 oNhap.focus();
@@ -153,9 +180,8 @@
 
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
-        // Tính năng giảm dung lượng nén ảnh chống lag sập trình duyệt máy tính
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
+            if (input.files && input.files && daDangNhapThanhCong) {
                 const file = input.files[0];
                 const reader = new FileReader();
                 
@@ -171,7 +197,7 @@
                         canvas.height = img.height * scale;
                         
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // Nén chất lượng 60% siêu mượt
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
                         
                         socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
                         input.value = ""; 
@@ -181,7 +207,6 @@
             }
         }
 
-        // Tính năng xóa sạch màn hình trò chuyện cục bộ trên máy
         function xoaSachManHinhTroChuyen() {
             if(confirm("Bạn có chắc chắn muốn dọn sạch toàn bộ tin nhắn đang hiển thị không?")) {
                 khungChat.innerHTML = "";
@@ -210,7 +235,6 @@
         socket.on('tin_nhan_moi_tu_server', function(data) {
             hienThiTinNhanLenKhungChat(data);
 
-            // Lưu trữ tin nhắn mới vào bộ nhớ cục bộ để backup phòng hờ
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.push(data);
             if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
