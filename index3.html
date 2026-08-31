@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Bảng Điều Khiển Thiết Bị Live</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; background: #1a1a1a; color: #fff; text-align: center; }
+        .vung-chuc-nang { display: flex; flex-direction: column; gap: 20px; max-width: 400px; margin: 50px auto; }
+        .nut-cam-share { padding: 20px; font-size: 18px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        #nut-cong-tac-cam { background: #00897b; }
+        #nut-cong-tac-cam:hover { background: #00695c; }
+        #nut-cong-tac-share { background: #3949ab; }
+        #nut-cong-tac-share:hover { background: #283593; }
+        #trang-thai { margin-top: 20px; font-size: 14px; color: #aaa; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <h2>🎛️ BẢNG ĐIỀU KHIỂN THIẾT BỊ LIVE</h2>
+    <div id="trang-thai">Đang kết nối đồng bộ tài khoản...</div>
+
+    <div class="vung-chuc-nang">
+        <button id="nut-cong-tac-cam" class="nut-cam-share" onclick="xuLyCongTacCamera()">📷 BẬT CAMERA PHẦN CỨNG</button>
+        <button id="nut-cong-tac-share" class="nut-cam-share" onclick="xuLyCongTacScreenShare()">🖥️ CHIA SẺ MÀN HÌNH MÁY TÍNH</button>
+    </div>
+
+    <script>
+        const socket = io();
+        let localStream = null;
+        let peerConnections = {};
+        const rtcConfig = { iceServers: [{ urls: 'stun:://google.com' }] };
+        let nickname = "Người dùng";
+
+        window.addEventListener('DOMContentLoaded', () => {
+            nickname = localStorage.getItem('saved_username') || "Ẩn danh";
+            const matKhau = localStorage.getItem('saved_password');
+            if (nickname && matKhau) {
+                socket.emit('dang_nhap_he_thong', { ten: nickname, matKhau: matKhau }, (res) => {
+                    if (res.success) {
+                        document.getElementById('trang-thai').innerText = `Đang đồng bộ dưới tên: ${nickname}`;
+                    }
+                });
+            } else {
+                document.getElementById('trang-thai').innerText = "Lỗi: Bạn cần Đăng nhập ở khung chat trước!";
+            }
+        });
+
+        async function xuLyCongTacCamera() {
+            const nutCam = document.getElementById('nut-cong-tac-cam');
+            if (!localStream) {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    nutCam.innerText = '📷 TẮT CAMERA'; nutCam.style.background = '#e53935';
+                    socket.emit('xin_phep_bat_camera_server', { ten: nickname }, (res) => {
+                        if (!res.allowed) alert(res.msg);
+                    });
+                } catch (err) { alert('Không thể truy cập camera phần cứng!'); }
+            } else {
+                giaiPhongThietBi();
+            }
+        }
+
+        async function xuLyCongTacScreenShare() {
+            const nutShare = document.getElementById('nut-cong-tac-share');
+            if (!localStream) {
+                try {
+                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    nutShare.innerText = '🖥️ TẮT CHIA SẺ'; nutShare.style.background = '#e53935';
+                    socket.emit('xin_phep_bat_camera_server', { ten: nickname + " (Màn hình)" }, (res) => {
+                        if (!res.allowed) alert(res.msg);
+                    });
+                    localStream.getVideoTracks().onended = () => { giaiPhongThietBi(); };
+                } catch (err) { alert('Không thể chia sẻ màn hình!'); }
+            } else {
+                giaiPhongThietBi();
+            }
+        }
+
+        function giaiPhongThietBi() {
+            if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+            document.getElementById('nut-cong-tac-cam').innerText = '📷 BẬT CAMERA PHẦN CỨNG'; document.getElementById('nut-cong-tac-cam').style.background = '#00897b';
+            document.getElementById('nut-cong-tac-share').innerText = '🖥️ CHIA SẺ MÀN HÌNH MÁY TÍNH'; document.getElementById('nut-cong-tac-share').style.background = '#3949ab';
+            socket.emit('chu_dong_tat_camera_server');
+            Object.keys(peerConnections).forEach(id => { peerConnections[id].close(); delete peerConnections[id]; });
+        }
+
+        socket.on('rtc_tin_hieu_nhan_ve', async (data) => {
+            if (data.type === 'offer') {
+                const pc = new RTCPeerConnection(rtcConfig);
+                peerConnections[data.sender] = pc;
+                if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                
+                pc.onicecandidate = (e) => {
+                    if (e.candidate) socket.emit('rtc_tin_hieu_chuyen_tiep', { to: data.sender, type: 'candidate', candidate: e.candidate });
+                };
+
+                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('rtc_tin_hieu_chuyen_tiep', { to: data.sender, type: 'answer', sdp: pc.localDescription });
+            }
+        });
+    </script>
+</body>
+</html>
