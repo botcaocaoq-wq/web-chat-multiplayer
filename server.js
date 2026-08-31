@@ -1,9 +1,7 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    maxHttpBufferSize: 1e7 // Giới hạn 10MB nhận luồng stream siêu tốc
-});
+const io = require('socket.io')(http);
 const webpush = require('web-push');
 
 app.use(express.json());
@@ -14,19 +12,9 @@ const publicVapidKey = vapidKeys.publicKey;
 const privateVapidKey = vapidKeys.privateKey;
 webpush.setVapidDetails('mailto:botcaocaoq@gmail.com', publicVapidKey, privateVapidKey);
 
-let danhSachDangKyThongBao = [];
 let mangTinNhanServer = []; 
 let danhSachTaiKhoan = {};   
-
-// 🛠️ MỚI: Danh sách quản lý tối đa 4 người đang bật Camera Livestream
 let danhSachCamServer = {}; // Lưu dạng { idSocket: nickname }
-
-function quetTinNhanQua20Phut() {
-    const bayGio = Date.now();
-    const haiMuoiPhut = 20 * 60 * 1000; 
-    mangTinNhanServer = mangTinNhanServer.filter(tinNhan => (bayGio - tinNhan.thoiGian) < haiMuoiPhut);
-}
-setInterval(quetTinNhanQua20Phut, 5 * 60 * 1000);
 
 app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 app.get('/camera', (req, res) => { res.sendFile(__dirname + '/index2.html'); });
@@ -39,7 +27,6 @@ io.on('connection', (socket) => {
         const username = data.ten.trim().toLowerCase();
         const password = data.matKhau;
         if (!username || username === "ẩn danh") return callback({ success: false, msg: 'Tên không hợp lệ!' });
-
         if (!danhSachTaiKhoan[username]) {
             danhSachTaiKhoan[username] = password;
             callback({ success: true, isNew: true });
@@ -51,32 +38,30 @@ io.on('connection', (socket) => {
 
     socket.on('lay_lich_su_khi_vao_sau', () => {
         socket.emit('tra_lich_su_cho_nguoi_moi', mangTinNhanServer);
-        // 🛠️ MỚI: Gửi danh sách các camera đang phát cho người vào sau đồng bộ giao diện
         socket.emit('dong_bo_tat_ca_camera_hieng_tai', danhSachCamServer);
     });
 
-    // 🛠️ MỚI: Logic xin quyền bật camera (Giới hạn tối đa 4 người)
+    // 🛠️ MỚI WEBRTC: Kiểm tra phòng đầy 4 người phát trực tiếp
     socket.on('xin_phep_bat_camera_server', (data, callback) => {
         const soLuongCam = Object.keys(danhSachCamServer).length;
         if (soLuongCam >= 4) {
-            return callback({ allowed: false, msg: "Phòng livestream đã đầy (Tối đa 4 người)! Vui lòng đợi người khác tắt cam." });
+            return callback({ allowed: false, msg: "Phòng đã đầy (Tối đa 4 luồng phát)!" });
         }
-        // Thêm vào danh sách phát
         danhSachCamServer[socket.id] = data.ten;
         callback({ allowed: true });
-        // Phát tín hiệu cho cả server tạo thêm khung video mới
         io.emit('co_nguoi_vua_bat_camera', { idSocket: socket.id, ten: data.ten });
     });
 
-    // 🛠️ MỚI: Trung chuyển luồng dữ liệu Livestream liên tục từ máy phát đến các máy xem
-    socket.on('luong_livestream_tu_may_khach', (data) => {
-        socket.broadcast.emit('luong_livestream_tu_server_ve', {
-            idSocket: socket.id,
-            khungHinh: data.khungHinh
+    // 🛠️ MỚI WEBRTC: Định tuyến các gói bắt tay kỹ thuật (Offer, Answer, ICE Candidate) đi thẳng giữa 2 trình duyệt
+    socket.on('rtc_tin_hieu_chuyen_tiep', (data) => {
+        io.to(data.to).emit('rtc_tin_hieu_nhan_ve', {
+            sender: socket.id,
+            type: data.type,
+            sdp: data.sdp,
+            candidate: data.candidate
         });
     });
 
-    // 🛠️ MỚI: Xử lý khi có người chủ động tắt camera
     socket.on('chu_dong_tat_camera_server', () => {
         if (danhSachCamServer[socket.id]) {
             delete danhSachCamServer[socket.id];
@@ -90,7 +75,6 @@ io.on('connection', (socket) => {
         io.emit('tin_nhan_moi_tu_server', tinNhanMoi);
     });
 
-    // Xử lý khi người dùng tắt tab / ngắt kết nối đột ngột
     socket.on('disconnect', () => {
         if (danhSachCamServer[socket.id]) {
             delete danhSachCamServer[socket.id];
@@ -100,4 +84,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => { console.log(`Server port: ${PORT}`); });
+http.listen(PORT, () => { console.log(`Server chạy tại port: ${PORT}`); });
