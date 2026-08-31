@@ -7,15 +7,20 @@
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         
-        #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; }
+        /* Cấu hình vùng nhập: Ô nhập -> Nút Chọn ảnh -> Nút Gửi */
+        #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
+        /* Nút chọn ảnh: Nằm sát cạnh nút gửi */
         #nut-chon-anh { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
         #nut-chon-anh:hover { background: #666; }
         #o-chon-anh { display: none; } 
         
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
+        
+        /* Ô nhập tên nằm ở bên dưới vùng nhập tin nhắn */
+        #o-ten { width: 400px; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
@@ -41,10 +46,14 @@
         <button id="nut-gui" onclick="guiTinNhan()">Gửi</button>
     </div>
 
+    <!-- KHÔI PHỤC: Ô nhập tên nằm ở bên dưới đúng yêu cầu của bạn -->
+    <input type="text" id="o-ten" placeholder="Biệt danh (Để trống sẽ hiện Ẩn danh)..." autocomplete="off">
+
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
+        const oTen = document.getElementById('o-ten');
 
         async function kichHoatChayNgam() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -69,11 +78,16 @@
             }
         }
 
+        // Lấy tên người dùng nhập vào, nếu trống mặc định là Ẩn danh
+        function layTenHienTai() {
+            return oTen.value.trim() !== "" ? oTen.value.trim() : "Ẩn danh";
+        }
+
         function guiTinNhan() {
             let noiDung = oNhap.value.trim();
+            let tenNguoiGui = layTenHienTai();
             if (noiDung !== "") {
-                // Đồng bộ gửi dạng Object định nghĩa rõ loại dữ liệu 'chu'
-                socket.emit('gui_tin_nhan_mau', { loai: 'chu', noiDung: noiDung });
+                socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: tenNguoiGui, chu: noiDung });
                 oNhap.value = "";
                 oNhap.focus();
             }
@@ -85,12 +99,13 @@
 
         function guiAnhTuDong(input) {
             if (input.files && input.files[0]) {
-                const file = input.files[0]; // SỬA CHÍNH XÁC: Phải lấy phần tử đầu tiên [0] của mảng files
+                const file = input.files[0];
                 const reader = new FileReader();
+                let tenNguoiGui = layTenHienTai();
                 
                 reader.onload = function(e) {
-                    // Đồng bộ gửi dạng Object định nghĩa rõ loại dữ liệu 'anh'
-                    socket.emit('gui_tin_nhan_mau', { loai: 'anh', noiDung: e.target.result });
+                    // Truyền cả loại 'anh', tên người gửi và dữ liệu ảnh Base64 lên server
+                    socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: tenNguoiGui, chu: e.target.result });
                     input.value = ""; 
                 };
                 reader.readAsDataURL(file);
@@ -105,19 +120,19 @@
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
 
-            // Kiểm tra thuộc tính động từ server trả về để render đúng giao diện ảnh
-            if (data.loai === 'chu' || data.chu) {
-                dongTinNhan.innerText = data.noiDung || data.chu;
+            // Hiển thị dạng: "Tên: Tin nhắn" hoặc "Tên: [Hình ảnh]"
+            if (data.loai === 'chu') {
+                dongTinNhan.innerText = `${data.ten}: ${data.chu}`;
             } else if (data.loai === 'anh') {
-                dongTinNhan.innerHTML = `<span>[Hình ảnh]:</span><img src="${data.noiDung}" class="anh-chat"/>`;
+                dongTinNhan.innerHTML = `<strong>${data.ten}:</strong><img src="${data.chu}" class="anh-chat"/>`;
             }
 
             khungChat.appendChild(dongTinNhan);
             khungChat.scrollTop = khungChat.scrollHeight;
 
             if (Notification.permission === "granted") {
-                new Notification("Phòng Chat Có Tin Nhắn Mới!", {
-                    body: data.loai === 'chu' ? data.noiDung : "[Hình ảnh]",
+                new Notification(`Tin nhắn mới từ ${data.ten}`, {
+                    body: data.loai === 'chu' ? data.chu : "[Hình ảnh]",
                     icon: "https://flaticon.com"
                 });
             }

@@ -2,14 +2,13 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
-    maxHttpBufferSize: 1e7 // Cho phép truyền ảnh dung lượng tối đa 10MB
+    maxHttpBufferSize: 1e7 // Tăng lên 10MB để nhận dữ liệu ảnh Base64
 });
 const webpush = require('web-push');
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Tự động tạo cặp khóa chuẩn 65 bytes khi khởi động server
 const vapidKeys = webpush.generateVAPIDKeys();
 const publicVapidKey = vapidKeys.publicKey;
 const privateVapidKey = vapidKeys.privateKey;
@@ -42,14 +41,21 @@ io.on('connection', (socket) => {
     console.log('Có một người chơi vừa kết nối vào phòng!');
 
     socket.on('gui_tin_nhan_mau', (data) => {
-        // ĐỒNG BỘ TẠI ĐÂY: Phát lại toàn bộ object data (gồm loai, noiDung hoặc chu) ra phòng chat
-        io.emit('tin_nhan_moi_tu_server', data);
+        console.log('Server nhận từ ' + data.ten + ' (' + data.loai + ')');
+        
+        // Phát lại đầy đủ thông tin tên, loại tin nhắn và dữ liệu cho cả phòng chat
+        io.emit('tin_nhan_moi_tu_server', {
+            loai: data.loai,
+            ten: data.ten,
+            chu: data.chu,
+            idSocketNguoiGui: data.idSocketNguoiGui
+        });
 
-        // Nội dung hiển thị trên thông báo đẩy ngầm ngoài màn hình
-        let noiDungThongBao = data.loai === 'anh' ? '[Hình ảnh]' : (data.chu || data.noiDung);
+        // Thiết lập nội dung thông báo đẩy khi ẩn tab
+        let noiDungThongBao = data.loai === 'anh' ? '[Hình ảnh]' : data.chu;
 
         const payload = JSON.stringify({
-            title: `Tin nhắn mới từ phòng chat`,
+            title: `Tin nhắn mới từ ${data.ten}`,
             body: noiDungThongBao
         });
 
