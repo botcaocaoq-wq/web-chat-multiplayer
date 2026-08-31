@@ -72,7 +72,7 @@
             }
         }
 
-        function guiTinNhan() {
+        fnction guiTinNhan() {
             let noiDung = oNhap.value.trim();
             if (noiDung !== "") {
                 socket.emit('gui_tin_nhan_mau', { loai: 'chu', noiDung: noiDung });
@@ -89,7 +89,7 @@
         // Chọn ảnh từ mục ảnh một phát là hệ thống tự động bắn đi luôn
         function guiAnhTuDong(input) {
             if (input.files && input.files[0]) {
-                const file = input.files[0];
+                const file = input.files[0]; // SỬA TẠI ĐÂY: Thêm [0] để lấy đúng file ảnh được chọn
                 const reader = new FileReader();
                 
                 reader.onload = function(e) {
