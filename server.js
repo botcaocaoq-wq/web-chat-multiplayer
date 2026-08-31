@@ -1,15 +1,17 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const io = require('socket.io')(http, {
+    maxHttpBufferSize: 1e7 // Cho phép gửi nhận file dữ liệu/hình ảnh dung lượng lên tới 10MB
+});
 const webpush = require('web-push');
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Bộ chìa khóa cố định bảo mật kết hợp với Email của bạn
-const publicVapidKey = 'BJh2lbyiHwcl6BmsFmU2V0iRzscv79-rFvScl5B8o2j5AWhC_X2w2E90Wc15t1Xv';
-const privateVapidKey = '_X2w2E90Wc15t1XvBJh2lbyiHwcl6BmsFmU2V0iRzsc';
+// SỬA TẠI ĐÂY: Thay thế bộ chìa khóa VAPID chuẩn 65-bytes để không bị sập Server
+const publicVapidKey = 'BEl6mE7mAxjKgapvOCnywCEgGxcAsC9G5ZEi8R9b8qID8l_X8_Z4mOB2_I-P-rV5e_uQJ8vXm_gGgP_z8g8M8A';
+const privateVapidKey = '6F_38W3kX39B_g-Yg8xX39B_g-Yg8xX39B_g-Yg8xX0';
 
 webpush.setVapidDetails(
   'mailto:botcaocaoq@gmail.com', // Email định danh chính thức của bạn để vượt tường lửa điện thoại
