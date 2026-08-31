@@ -2,35 +2,44 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
-    maxHttpBufferSize: 1e7 // Giới hạn nhận dữ liệu 10MB
+    maxHttpBufferSize: 1e7 // Giới hạn nhận dữ liệu 10MB để nhận được file ảnh chụp từ Webcam
 });
 const webpush = require('web-push');
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Tự động tạo cặp khóa chuẩn VAPID
+// Tự động tạo cặp khóa chuẩn VAPID khi khởi động để hệ thống Render không bị lỗi Failed
 const vapidKeys = webpush.generateVAPIDKeys();
 const publicVapidKey = vapidKeys.publicKey;
 const privateVapidKey = vapidKeys.privateKey;
 
 webpush.setVapidDetails('mailto:botcaocaoq@gmail.com', publicVapidKey, privateVapidKey);
 
-// Lưu trữ dữ liệu trên Server
+// Bộ nhớ lưu trữ tạm thời các phiên chat trên RAM Server
 let danhSachDangKyThongBao = [];
-let mangTinNhanServer = []; // Lưu tin nhắn để người vào sau vẫn xem được
-let danhSachTaiKhoan = {};   // Lưu dạng { 'ten_dang_nhap': 'mat_khau' }
+let mangTinNhanServer = []; 
+let danhSachTaiKhoan = {};   
 
-// Hàm tự động xóa tin nhắn cũ sau 24 giờ
-function quetTinNhanQua24Gio() {
+// Hàm tự động quét dọn xóa sạch tin nhắn cũ sau mỗi 20 phút để server luôn nhẹ, không bị lag
+function quetTinNhanQua20Phut() {
     const bayGio = Date.now();
-    const haiMuoiBonGio = 24 * 60 * 60 * 1000;
-    mangTinNhanServer = mangTinNhanServer.filter(tinNhan => (bayGio - tinNhan.thoiGian) < haiMuoiBonGio);
+    const haiMuoiPhut = 20 * 60 * 1000; 
+    mangTinNhanServer = mangTinNhanServer.filter(tinNhan => (bayGio - tinNhan.thoiGian) < haiMuoiPhut);
 }
-// Chạy quét dọn mỗi 10 phút một lần
-setInterval(quetTinNhanQua24Gio, 10 * 60 * 1000);
+// Cứ mỗi 5 phút hệ thống tự động chạy kiểm tra bộ nhớ một lần
+setInterval(quetTinNhanQua20Phut, 5 * 60 * 1000);
 
-app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
+// 1. Đường dẫn mặc định mở trang chat chính (index.html)
+app.get('/', (req, res) => { 
+    res.sendFile(__dirname + '/index.html'); 
+});
+
+// 2. 🛠️ ĐÃ THÊM: Đường dẫn phụ mở trang gánh thử nghiệm Camera (index2.html)
+app.get('/camera', (req, res) => {
+    res.sendFile(__dirname + '/index2.html');
+});
+
 app.get('/vapid-public-key', (req, res) => { res.send(publicVapidKey); });
 
 app.post('/luu-thong-bao', (req, res) => {
@@ -41,24 +50,25 @@ app.post('/luu-thong-bao', (req, res) => {
     res.status(201).json({});
 });
 
+// Xử lý các sự kiện realtime kết nối Socket.io
 io.on('connection', (socket) => {
-    console.log('Có kết nối mới: ' + socket.id);
+    console.log('Có thiết bị kết nối vào phòng chat: ' + socket.id);
 
-    // Tính năng 1: Xử lý đăng nhập bằng Nickname + Mật khẩu
+    // Xử lý đăng nhập kiểm tra mật khẩu bằng Nickname cụ thể
     socket.on('dang_nhap_he_thong', (data, callback) => {
         const username = data.ten.trim().toLowerCase();
         const password = data.matKhau;
 
         if (!username || username === "ẩn danh") {
-            return callback({ success: false, msg: 'Tên không hợp lệ!' });
+            return callback({ success: false, msg: 'Tên tài khoản không hợp lệ!' });
         }
 
         if (!danhSachTaiKhoan[username]) {
-            // Tên chưa tồn tại -> Tự động đăng ký mới
+            // Tên chưa từng tồn tại -> Tự động đăng ký mới với mật khẩu vừa nhập
             danhSachTaiKhoan[username] = password;
             callback({ success: true, isNew: true });
         } else {
-            // Tên đã tồn tại -> Kiểm tra mật khẩu
+            // Tên đã tồn tại trên hệ thống -> Bắt buộc kiểm tra trùng khớp mật khẩu cũ
             if (danhSachTaiKhoan[username] === password) {
                 callback({ success: true, isNew: false });
             } else {
@@ -67,9 +77,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Tính năng 2: Người vào sau tải lại toàn bộ tin nhắn chưa quá 24h
+    // Người vào sau (ở cả trang chính lẫn trang camera) tải lại lịch sử tin nhắn trong vòng 20 phút
     socket.on('lay_lich_su_khi_vao_sau', () => {
-        quetTinNhanQua24Gio(); // Quét lại một lần trước khi gửi dữ liệu cho người mới
+        quetTinNhanQua20Phut(); 
         socket.emit('tra_lich_su_cho_nguoi_moi', mangTinNhanServer);
     });
 
@@ -78,13 +88,12 @@ io.on('connection', (socket) => {
             loai: data.loai,
             ten: data.ten,
             chu: data.chu,
-            thoiGian: Date.now() // Ghi lại mốc thời gian để tính 24h
+            thoiGian: Date.now() 
         };
 
         mangTinNhanServer.push(tinNhanMoi);
         io.emit('tin_nhan_moi_tu_server', tinNhanMoi);
 
-        // Phát thông báo đẩy ngầm ngoài màn hình
         let noiDungThongBao = data.loai === 'anh' ? '[Hình ảnh]' : data.chu;
         const payload = JSON.stringify({ title: `Tin nhắn từ ${data.ten}`, body: noiDungThongBao });
 
@@ -103,4 +112,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => { console.log(`Server chạy tại cổng: ${PORT}`); });
+http.listen(PORT, () => { console.log(`Server đang vận hành ổn định tại port: ${PORT}`); });
