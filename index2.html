@@ -8,13 +8,13 @@
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
         
-        /* Khối chat trái giữ nguyên kích thước của bạn */
+        /* Khối chat trái giữ nguyên kích thước giao diện thực tế của bạn */
         #khoi-chat-chinh { width: 422px; }
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
-        /* Các nút bấm tiện ích cạnh ô chat */
+        /* Các nút bấm tiện ích Live tích hợp cạnh ô chat */
         .nut-tien-ich { padding: 8px 12px; font-size: 18px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; }
         #nut-cong-tac-cam { background: #555; }
         #nut-cong-tac-share { background: #555; }
@@ -34,7 +34,7 @@
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
 
-        /* LƯỚI VIDEO BÊN PHẢI: Ban đầu trống, chỉ hiện tối đa 2 ô video của người khác */
+        /* LƯỚI VIDEO BÊN PHẢI: Ban đầu trống hoàn toàn, xuất hiện video theo thời gian thực */
         #khoi-camera-phu { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
@@ -46,6 +46,7 @@
         }
         .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
         .video-stream-cam { width: 100%; height: 100%; object-fit: cover; background: #111; }
+        .lat-guong { transform: scaleX(-1); } 
         .nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
 
         @media (max-width: 950px) {
@@ -64,13 +65,12 @@
     <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
     
     <div id="giao-dien-tong">
-        <!-- Khối bên trái: Khung Chat và các tính năng điều khiển thiết bị liên kết -->
+        <!-- Khối bên trái: Hệ thống nhắn tin và xác thực tài khoản -->
         <div id="khoi-chat-chinh">
             <div id="khung-chat"></div>
             <div id="vung-nhap">
-                <input type="text" id="o-nhap" placeholder="Nhập chữ hoặc dán link..." autocomplete="off" disabled>
+                <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
                 
-                <!-- Hai nút Camera và Share màn hình được đưa sát vào cạnh ô nhập theo ý bạn -->
                 <button id="nut-cong-tac-cam" class="nut-tien-ich" type="button" onclick="xuLyCongTacThietBi('camera')" disabled>📷</button>
                 <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacThietBi('screen')" disabled>🖥️</button>
                 
@@ -88,7 +88,7 @@
             <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
         </div>
 
-        <!-- Khối bên phải: Lưới hiển thị Realtime tối đa 2 màn hình của người khác -->
+        <!-- Khối bên phải: Vùng trống hiển thị luồng stream thời gian thực -->
         <div id="khoi-camera-phu"></div>
     </div>
     <script>
@@ -111,6 +111,7 @@
         let peerConnections = {}; 
         const rtcConfig = { iceServers: [{ urls: 'stun:://google.com' }] };
 
+        // Tự động kiểm tra thông tin đăng nhập cũ trong bộ nhớ
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
@@ -119,11 +120,12 @@
             }
         });
 
+        // Xử lý đăng nhập đồng bộ
         function xuLyXacThucTaiKhoan() {
             const ten = oTen.value.trim();
             const matKhau = oMatKhau.value;
             if(!ten || !matKhau) {
-                alert("Vui lòng nhập đầy đủ tài khoản!");
+                alert("Vui lòng nhập đầy đủ thông tin tài khoản!");
                 return;
             }
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
@@ -141,7 +143,7 @@
                     localStorage.setItem('saved_password', matKhau);
                     socket.emit('lay_lich_su_khi_vao_sau');
                 } else {
-                    alert("Đăng nhập thất bại!");
+                    alert("Đăng nhập thất bại! Vui lòng thử lại.");
                 }
             });
         }
@@ -151,21 +153,23 @@
             location.reload();
         }
 
+        // Xử lý gửi đính kèm file ảnh Base64
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
         function guiAnhTuDong(input) {
-            if (input.files && input.files[0]) {
+            if (input.files && input.files) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
                     socket.emit('gui_tin_nhan_server', msg);
                     hienThiTinNhanLenKhungChat(msg);
                 };
-                reader.readAsDataURL(input.files[0]);
+                reader.readAsDataURL(input.files);
                 input.value = ''; 
             }
         }
 
+        // Gửi tin nhắn chữ văn bản
         function guiTinNhan() {
             const noiDung = oNhap.value.trim();
             if (!noiDung) return;
@@ -177,6 +181,7 @@
 
         oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
 
+        // Kết xuất dữ liệu ra màn hình chat
         function hienThiTinNhanLenKhungChat(data) {
             let mocAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
             if (data.thoiGian < mocAn) return;
@@ -201,7 +206,7 @@
 
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
         function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
-        // Đồng bộ mạng lưới camera thời gian thực của máy chủ
+        // Hệ thống quản lý kết nối RTC Signaling
         socket.on('dong_bo_tat_ca_camera_hieng_tai', (danhSachCam) => {
             Object.keys(danhSachCam).forEach(idSocket => {
                 if (idSocket !== socket.id) thietLapWebRTCPeer(idSocket, danhSachCam[idSocket], true);
@@ -220,9 +225,8 @@
             }
         });
 
-        // Thiết lập cấu hình bắt tay P2P
         function thietLapWebRTCPeer(idNguoiNhan, tenNguoiDung, taoOffer) {
-            // ĐIỀU KIỆN GIỚI HẠN: Chỉ hiển thị tối đa 2 màn hình của người khác lên lưới
+            // Giới hạn hiển thị thêm tối đa 2 người dùng khác để khép kín luồng 3 người
             if (Object.keys(peerConnections).length >= 2) return;
             if (peerConnections[idNguoiNhan]) return;
 
@@ -241,7 +245,7 @@
 
             pc.ontrack = (e) => {
                 if (e.streams && e.streams[0]) {
-                    themKhoiVideoElements(idNguoiNhan, e.streams[0], tenNguoiDung);
+                    themKhoiVideoElements(idNguoiNhan, e.streams[0], tenNguoiDung, false);
                 }
             };
 
@@ -267,38 +271,44 @@
             }
         });
 
-        // SỬA ĐỔI: Công tắc xử lý thiết bị thời gian thực thông minh 1-trong-2
+        // Xử lý công tắc thông minh 1-trong-2 thời gian thực (Hiện ngay luồng của bạn để tự xem)
         async function xuLyCongTacThietBi(loaiYeuCau) {
             const tenUser = oTen.value.trim();
 
-            // Trường hợp 1: Bấm vào nút đang phát -> Tắt hoàn toàn thiết bị
+            // Nếu bấm lại vào nút đang phát -> Tiến hành tắt và dọn dẹp khung video
             if (loaiStreamHienTai === loaiYeuCau) {
                 tatXongGiaiPhongThietBi();
                 return;
             }
 
-            // Trường hợp 2: Đang phát thiết bị này mà bấm nút kia -> Tắt cái cũ trước khi đổi
+            // Nếu đang chạy luồng cũ -> Dừng các track phần cứng cũ để đổi luồng mới
             if (localStream) {
-                if (localStream) localStream.getTracks().forEach(track => track.stop());
+                localStream.getTracks().forEach(track => track.stop());
                 localStream = null;
+                xoaKhoiVideoElements(socket.id); 
             }
 
-            // Tiến hành kích hoạt luồng phát mới theo yêu cầu của bạn
             try {
+                let laHieuUngGuong = false;
                 if (loaiYeuCau === 'camera') {
                     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     loaiStreamHienTai = 'camera';
-                    nutCongTacCam.style.background = '#4caf50'; // Đổi màu xanh báo hiệu đang chạy
+                    laHieuUngGuong = true; // Lật gương cho camera trước giống như soi gương
+                    nutCongTacCam.style.background = '#4caf50'; // Sáng đèn xanh lá
                     nutCongTacShare.style.background = '#555';
                 } else if (loaiYeuCau === 'screen') {
                     localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
                     loaiStreamHienTai = 'screen';
-                    nutCongTacShare.style.background = '#3949ab'; // Đổi màu xanh dương báo hiệu đang chạy
+                    nutCongTacShare.style.background = '#3949ab'; // Sáng đèn xanh dương
                     nutCongTacCam.style.background = '#555';
-                    localStream.getVideoTracks()[0].onended = () => { tatXongGiaiPhongThietBi(); };
+                    localStream.getVideoTracks().onended = () => { tatXongGiaiPhongThietBi(); };
                 }
 
-                // Phát tín hiệu lên máy chủ Render để cập nhật danh sách camera toàn quốc
+                // Hiển thị lập tức luồng dữ liệu của chính bạn lên góc phải để kiểm tra hình ảnh
+                const nhanHienThi = loaiYeuCau === 'screen' ? "Bạn (Đang chia sẻ màn hình)" : "Bạn (Camera)";
+                themKhoiVideoElements(socket.id, localStream, nhanHienThi, laHieuUngGuong);
+
+                // Gửi tín hiệu thông báo cho toàn bộ phòng trên server Render cập nhật
                 socket.emit('xin_phep_bat_camera_server', { ten: loaiYeuCau === 'screen' ? `${tenUser} (Màn hình)` : tenUser }, (res) => {
                     if (!res.allowed) {
                         alert(res.msg);
@@ -306,7 +316,7 @@
                     }
                 });
 
-                // Cập nhật track trực tiếp cho các kết nối P2P đang hoạt động
+                // Đồng bộ cập nhật track mới cho các máy của người dùng khác trong phòng
                 Object.values(peerConnections).forEach(pc => {
                     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
                 });
@@ -319,21 +329,28 @@
 
         function tatXongGiaiPhongThietBi() {
             if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+            xoaKhoiVideoElements(socket.id); // Ẩn hoàn toàn khung video của bạn khỏi màn hình khi tắt
             loaiStreamHienTai = null;
             nutCongTacCam.style.background = '#555';
             nutCongTacShare.style.background = '#555';
             socket.emit('chu_dong_tat_camera_server');
         }
 
-        // Đổ luồng dữ liệu thô chuẩn xác vào lưới video của người khác
-        function themKhoiVideoElements(id, stream, labelText) {
+        // Kết xuất đồ họa luồng stream thô vào thẻ video HTML động
+        function themKhoiVideoElements(id, stream, labelText, MirrorEffect) {
             if (document.getElementById(id)) {
                 document.getElementById(id).querySelector('video').srcObject = stream;
                 return;
             }
             const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
             const video = document.createElement('video'); video.className = 'video-stream-cam';
-            video.autoplay = true; video.playsInline = true; video.srcObject = stream;
+            if (MirrorEffect) video.classList.add('lat-guong');
+            
+            video.autoplay = true; 
+            video.playsInline = true; 
+            video.muted = (id === socket.id); // Tắt tiếng của chính mình trên thiết bị của mình để tránh bị vọng tiếng hú
+            video.srcObject = stream;
+            
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
             box.appendChild(video); box.appendChild(label); khoiCameraPhu.appendChild(box);
         }
