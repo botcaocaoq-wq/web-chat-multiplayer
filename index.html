@@ -17,6 +17,7 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
         
+        /* Nút xóa hình vuông nhỏ gọn nằm sát cạnh nút gửi */
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; aspect-ratio: 1/1; }
         #nut-xoa-man-hinh:hover { background: #c62828; }
 
@@ -29,9 +30,8 @@
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
         
-        /* 🛠️ THÊM CSS MỚI: Khung nhúng thông minh cho YouTube và TikTok */
+        /* CSS Khung phát nhúng video cho YouTube và TikTok */
         .iframe-video-nhung { max-width: 320px; width: 100%; height: 180px; border: none; border-radius: 5px; margin-top: 5px; display: block; background: #000; }
-        /* Tối ưu riêng chiều cao cho khung dọc đặc trưng của TikTok Shorts */
         .iframe-tiktok { height: 400px; max-width: 250px; }
 
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
@@ -47,7 +47,7 @@
     <div id="khung-chat"></div>
     
     <div id="vung-nhap">
-        <input type="text" id="o-nhap" placeholder="Dán duy nhất link YouTube hoặc TikTok..." autocomplete="off" disabled>
+        <input type="text" id="o-nhap" placeholder="Nhập chữ hoặc dán link YouTube/TikTok..." autocomplete="off" disabled>
         <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
@@ -117,7 +117,7 @@
         }
 
         function xuLyDoiTaiKhoan() {
-            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không?")) {
+            if(confirm("Bạn có chắc chắn muốn thoát tài khoản không? (Tài khoản cũ của bạn vẫn giữ nguyên)")) {
                 daDangNhapThanhCong = false;
                 oNhap.disabled = true;
                 document.getElementById('nut-chon-anh').disabled = true;
@@ -174,8 +174,8 @@
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
-                const file = input.files;
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const img = new Image();
@@ -208,48 +208,49 @@
         oNhap.addEventListener("keypress", function(event) {
             if (event.key === "Enter") { guiTinNhan(); }
         });
-
-        // 🛠️ HÀM NÂNG CẤP: Kiểm tra nghiêm ngặt, CHỈ chấp nhận chuyển đổi link YouTube hoặc TikTok
+        // 🛠️ HÀM SỬA LỖI: Hỗ trợ nhận diện hoàn hảo cả YouTube Shorts, Video dài, TikTok và Chữ thường
         function taoNoiDungTinNhanHtml(chu) {
             const bieuThucLink = /(https?:\/\/[^\s]+)/g;
             const cacLink = chu.match(bieuThucLink);
             
             if (cacLink) {
-                let linkGoc = cacLink;
+                let linkGoc = cacLink[0]; 
                 
-                // 1. KIỂM TRA LINK YOUTUBE
+                // 1. KIỂM TRA ĐƯỜNG DẪN YOUTUBE (Cả Shorts và Video dài)
                 if (linkGoc.includes('youtube.com') || linkGoc.includes('youtu.be')) {
                     let idVideoYt = "";
-                    if (linkGoc.includes('v=')) {
-                        idVideoYt = linkGoc.split('v=')[1].split('&')[0];
+                    
+                    if (linkGoc.includes('/shorts/')) {
+                        let catShorts = linkGoc.split('/shorts/');
+                        if (catShorts[1]) idVideoYt = catShorts[1].split('?')[0];
+                    } else if (linkGoc.includes('v=')) {
+                        let catV = linkGoc.split('v=');
+                        if (catV[1]) idVideoYt = catV[1].split('&')[0];
                     } else if (linkGoc.includes('youtu.be/')) {
-                        idVideoYt = linkGoc.split('youtu.be/')[1].split('?')[0];
-                    } else if (linkGoc.includes('embed/')) {
-                        idVideoYt = linkGoc.split('embed/')[1].split('?')[0];
+                        let catDuoi = linkGoc.split('youtu.be/');
+                        if (catDuoi[1]) idVideoYt = catDuoi[1].split('?')[0];
                     }
+                    
                     if (idVideoYt) {
-                        return `<span>[YouTube]:</span><iframe class="iframe-video-nhung" src="https://youtube.com{idVideoYt}" allowfullscreen></iframe>`;
+                        return `<span style="display:block;margin-bottom:3px;">[YouTube]:</span><iframe class="iframe-video-nhung" src="https://youtube.com{idVideoYt}" allowfullscreen></iframe>`;
                     }
                 }
                 
-                // 2. KIỂM TRA LINK TIKTOK
+                // 2. KIỂM TRA ĐƯỜNG DẪN TIKTOK
                 if (linkGoc.includes('tiktok.com')) {
                     let idVideoTiktok = "";
-                    // Xử lý link dạng web máy tính: ://tiktok.com
                     if (linkGoc.includes('/video/')) {
-                        idVideoTiktok = linkGoc.split('/video/')[1].split('?')[0];
+                        let catTk = linkGoc.split('/video/');
+                        if (catTk[1]) idVideoTiktok = catTk[1].split('?')[0];
                     }
-                    
                     if (idVideoTiktok) {
-                        return `<span>[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{idVideoTiktok}" allowfullscreen></iframe>`;
+                        return `<span style="display:block;margin-bottom:3px;">[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{idVideoTiktok}" allowfullscreen></iframe>`;
                     } else {
-                        // Nếu là link rút gọn trên điện thoại (://tiktok.com / ://tiktok.com), nhúng trình phát xem tạm
-                        return `<span>[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{encodeURIComponent(linkGoc)}" allowfullscreen></iframe>`;
+                        return `<span style="display:block;margin-bottom:3px;">[TikTok]:</span><iframe class="iframe-video-nhung iframe-tiktok" src="https://tiktok.com{encodeURIComponent(linkGoc)}" allowfullscreen></iframe>`;
                     }
                 }
             }
-            // Tuyệt đối không xử lý các loại link khác, giữ nguyên chữ thô để bảo mật chống phá web
-            return document.createTextNode(chu).textContent;
+            return ""; 
         }
 
         function hienThiTinNhanLenKhungChat(data) {
@@ -257,8 +258,15 @@
             dongTinNhan.className = 'tin-nhan';
 
             if (data.loai === 'chu') {
-                let noiDungXuly = taoNoiDungTinNhanHtml(data.chu);
-                dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> ${noiDungXuly}`;
+                let khungVideoHtml = taoNoiDungTinNhanHtml(data.chu);
+                if (khungVideoHtml !== "") {
+                    // Nếu dán link video YouTube/TikTok chuẩn, tự động dựng trình phát nhúng trực quan
+                    dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> ${khungVideoHtml}`;
+                } else {
+                    // Nếu là chữ thường hoặc link khác, hiển thị dạng văn bản an toàn để không bị lỗi gửi ảnh
+                    dongTinNhan.innerHTML = `<strong>${data.ten}:</strong> <span></span>`;
+                    dongTinNhan.querySelector('span').innerText = data.chu;
+                }
             } else if (data.loai === 'anh') {
                 dongTinNhan.innerHTML = `<strong>${data.ten}:</strong><img src="${data.chu}" class="anh-chat"/>`;
             }
@@ -272,16 +280,14 @@
             if (data.thoiGian > mocThoiGianAn) {
                 hienThiTinNhanLenKhungChat(data);
             }
+
             let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
             lichSuNoiBo.push(data);
             if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
             localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
 
             if (Notification.permission === "granted") {
-                new Notification(`Tin nhắn mới từ ${data.ten}`, { 
-                    body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", 
-                    icon: "https://flaticon.com" 
-                });
+                new Notification(`Tin nhắn mới từ ${data.ten}`, { body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", icon: "https://flaticon.com" });
             }
         });
     </script>
