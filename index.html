@@ -7,11 +7,9 @@
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; }
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         
-        /* Cấu hình vùng nhập: Ô nhập -> Nút Chọn ảnh -> Nút Gửi */
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         
-        /* Nút chọn ảnh: Nằm sát cạnh nút gửi */
         #nut-chon-anh { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
         #nut-chon-anh:hover { background: #666; }
         #o-chon-anh { display: none; } 
@@ -19,12 +17,17 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
         
-        /* Ô nhập tên nằm ở bên dưới vùng nhập tin nhắn */
-        #o-ten { width: 400px; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+        /* Cấu hình cụm tài khoản mật khẩu bên dưới */
+        #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
+        .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+        #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
         
+        /* Nút xóa toàn bộ tin nhắn phía trên màn hình */
+        #nut-xoa-man-hinh { width: 422px; padding: 8px; background: #e53935; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        #nut-xoa-man-hinh:hover { background: #c62828; }
+
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        
         #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
@@ -38,22 +41,86 @@
     <div id="khung-chat"></div>
     
     <div id="vung-nhap">
-        <input type="text" id="o-nhap" placeholder="Nhập tin nhắn ở đây..." autocomplete="off">
-        
-        <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()">📎</button>
+        <input type="text" id="o-nhap" placeholder="Nhập tin nhắn ở đây..." autocomplete="off" disabled>
+        <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
-
-        <button id="nut-gui" onclick="guiTinNhan()">Gửi</button>
+        <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
     </div>
 
-    <!-- KHÔI PHỤC: Ô nhập tên nằm ở bên dưới đúng yêu cầu của bạn -->
-    <input type="text" id="o-ten" placeholder="Biệt danh (Để trống sẽ hiện Ẩn danh)..." autocomplete="off">
+    <!-- KHU VỰC TÀI KHOẢN MẬT KHẨU NẰM Ở DƯỚI CÙNG -->
+    <div id="vung-tai-khoan">
+        <input type="text" id="o-ten" class="o-dang-nhap" placeholder="Nhập Nickname..." autocomplete="off">
+        <input type="password" id="o-mat-khau" class="o-dang-nhap" placeholder="Mật khẩu tài khoản..." autocomplete="off">
+        <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
+    </div>
 
+    <!-- Nút xóa toàn bộ tin nhắn hiển thị trên khung chat -->
+    <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹 XÓA TOÀN BỘ TIN NHẮN PHÍA TRÊN</button>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
         const oTen = document.getElementById('o-ten');
+        const oMatKhau = document.getElementById('o-mat-khau');
+        let daDangNhapThanhCong = false;
+
+        // Tự động khôi phục dữ liệu đã lưu từ bộ nhớ máy trình duyệt khi mở web lên
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
+                oTen.value = localStorage.getItem('saved_username');
+                oMatKhau.value = localStorage.getItem('saved_password');
+                xuLyXacThucTaiKhoan(); // Tự động đăng nhập luôn không cần nhập lại
+            }
+            
+            // Khôi phục lại lịch sử chat nội bộ máy lưu trữ nếu có
+            let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
+            lichSuNoiBo.forEach(data => hienThiTinNhanLenKhungChat(data));
+        });
+
+        // Hàm xử lý xác thực tài khoản/mật khẩu
+        function xuLyXacThucTaiKhoan() {
+            const ten = oTen.value.trim();
+            const matKhau = oMatKhau.value;
+
+            if(!ten || !matKhau) {
+                alert("Vui lòng nhập đầy đủ cả Tên đăng nhập và Mật khẩu!");
+                return;
+            }
+
+            socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
+                if (res.success) {
+                    daDangNhapThanhCong = true;
+                    // Kích hoạt các nút chat mở ra hoạt động
+                    oNhap.disabled = false;
+                    document.getElementById('nut-chon-anh').disabled = false;
+                    document.getElementById('nut-gui').disabled = false;
+                    
+                    // Lưu thông tin đăng nhập cố định vào máy để tắt đi bật lại không bị mất form
+                    localStorage.setItem('saved_username', ten);
+                    localStorage.setItem('saved_password', matKhau);
+                    
+                    document.getElementById('vung-tai-khoan').style.opacity = '0.5';
+                    document.getElementById('nut-xac-thuc').innerText = "Đã Vào";
+                    document.getElementById('nut-xac-thuc').disabled = true;
+
+                    // Tải toàn bộ tin nhắn lưu trên server về (người vào sau vẫn xem được)
+                    socket.emit('lay_lich_su_khi_vao_sau');
+                } else {
+                    alert(res.msg);
+                }
+            });
+        }
+
+        // Nhận lịch sử đồng bộ từ server gửi về khi vừa vào phòng
+        socket.on('tra_lich_su_cho_nguoi_moi', function(mangTinNhan) {
+            khungChat.innerHTML = ""; // Xóa dữ liệu cũ để đồng bộ chuẩn từ server về
+            let lichSuLuuLocal = [];
+            mangTinNhan.forEach(data => {
+                hienThiTinNhanLenKhungChat(data);
+                lichSuLuuLocal.push(data);
+            });
+            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuLuuLocal));
+        });
 
         async function kichHoatChayNgam() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -63,10 +130,7 @@
                     if (permission !== 'granted') { return; }
                     const response = await fetch('/vapid-public-key');
                     const publicKey = await response.text();
-                    const sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: publicKey
-                    });
+                    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey });
                     await fetch('/luu-thong-bao', {
                         method: 'POST',
                         body: JSON.stringify(sub),
@@ -78,37 +142,50 @@
             }
         }
 
-        // Lấy tên người dùng nhập vào, nếu trống mặc định là Ẩn danh
-        function layTenHienTai() {
-            return oTen.value.trim() !== "" ? oTen.value.trim() : "Ẩn danh";
-        }
-
         function guiTinNhan() {
             let noiDung = oNhap.value.trim();
-            let tenNguoiGui = layTenHienTai();
             if (noiDung !== "") {
-                socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: tenNguoiGui, chu: noiDung });
+                socket.emit('gui_tin_nhan_mau', { loai: 'chu', ten: oTen.value.trim(), chu: noiDung });
                 oNhap.value = "";
                 oNhap.focus();
             }
         }
 
-        function kichHoatOChonAnh() {
-            document.getElementById('o-chon-anh').click();
-        }
+        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
+        // Tính năng giảm dung lượng nén ảnh chống lag sập trình duyệt máy tính
         function guiAnhTuDong(input) {
-            if (input.files && input.files[0]) {
+            if (input.files && input.files) {
                 const file = input.files[0];
                 const reader = new FileReader();
-                let tenNguoiGui = layTenHienTai();
                 
                 reader.onload = function(e) {
-                    // Truyền cả loại 'anh', tên người gửi và dữ liệu ảnh Base64 lên server
-                    socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: tenNguoiGui, chu: e.target.result });
-                    input.value = ""; 
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const max_width = 500;
+                        const scale = max_width / img.width;
+                        canvas.width = max_width;
+                        canvas.height = img.height * scale;
+                        
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // Nén chất lượng 60% siêu mượt
+                        
+                        socket.emit('gui_tin_nhan_mau', { loai: 'anh', ten: oTen.value.trim(), chu: compressedBase64 });
+                        input.value = ""; 
+                    };
                 };
                 reader.readAsDataURL(file);
+            }
+        }
+
+        // Tính năng xóa sạch màn hình trò chuyện cục bộ trên máy
+        function xoaSachManHinhTroChuyen() {
+            if(confirm("Bạn có chắc chắn muốn dọn sạch toàn bộ tin nhắn đang hiển thị không?")) {
+                khungChat.innerHTML = "";
+                localStorage.removeItem('lichSuChat_Local');
             }
         }
 
@@ -116,11 +193,10 @@
             if (event.key === "Enter") { guiTinNhan(); }
         });
 
-        socket.on('tin_nhan_moi_tu_server', function(data) {
+        function hienThiTinNhanLenKhungChat(data) {
             let dongTinNhan = document.createElement('div');
             dongTinNhan.className = 'tin-nhan';
 
-            // Hiển thị dạng: "Tên: Tin nhắn" hoặc "Tên: [Hình ảnh]"
             if (data.loai === 'chu') {
                 dongTinNhan.innerText = `${data.ten}: ${data.chu}`;
             } else if (data.loai === 'anh') {
@@ -129,12 +205,19 @@
 
             khungChat.appendChild(dongTinNhan);
             khungChat.scrollTop = khungChat.scrollHeight;
+        }
+
+        socket.on('tin_nhan_moi_tu_server', function(data) {
+            hienThiTinNhanLenKhungChat(data);
+
+            // Lưu trữ tin nhắn mới vào bộ nhớ cục bộ để backup phòng hờ
+            let lichSuNoiBo = JSON.parse(localStorage.getItem('lichSuChat_Local')) || [];
+            lichSuNoiBo.push(data);
+            if (lichSuNoiBo.length > 50) lichSuNoiBo.shift();
+            localStorage.setItem('lichSuChat_Local', JSON.stringify(lichSuNoiBo));
 
             if (Notification.permission === "granted") {
-                new Notification(`Tin nhắn mới từ ${data.ten}`, {
-                    body: data.loai === 'chu' ? data.chu : "[Hình ảnh]",
-                    icon: "https://flaticon.com"
-                });
+                new Notification(`Tin nhắn mới từ ${data.ten}`, { body: data.loai === 'chu' ? data.chu : "[Hình ảnh]", icon: "https://flaticon.com" });
             }
         });
     </script>
