@@ -22,7 +22,7 @@
 
     <h3>KHUNG TIN NHẮN MULTIPLAYER</h3>
     
-    <!-- Nút bấm bắt buộc để cài đặt bộ chạy ngầm vào máy tính -->
+    <!-- Nút bấm bắt buộc để cài đặt bộ chạy ngầm vào máy tính/điện thoại -->
     <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
     
     <div id="khung-chat"></div>
@@ -41,7 +41,7 @@
         const oNhap = document.getElementById('o-nhap');
         const oTen = document.getElementById('o-ten');
 
-        // Hàm đăng ký chạy ngầm dưới Windows
+        // Hàm đăng ký chạy ngầm dưới hệ thống để nhận thông báo đẩy
         async function kichHoatChayNgam() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
@@ -83,14 +83,45 @@
             }
         }
 
+        // Tự động ẩn nút màu cam nếu người dùng đã kích hoạt thành công từ trước
+        if (Notification.permission === "granted") {
+            // Chúng ta không ẩn ngay để đề phòng trường hợp cần bấm lại để khớp khóa cố định mới
+            console.log("Quyền thông báo đã được cấp.");
+        }
+
+        // Hàm xử lý gửi tin nhắn kèm ID thiết bị ẩn
         function guiTinNhan() {
             let bieuTen = oTen.value.trim() || "Ẩn danh";
             let noiDung = oNhap.value.trim();
             
             if (noiDung !== "") {
-                socket.emit('gui_tin_nhan_mau', { ten: bieuTen, chu: noiDung });
-                oNhap.value = "";
-                oNhap.focus();
+                // Kiểm tra Service Worker để lấy ID định danh thiết bị ngầm gửi lên server lọc
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(function(reg) {
+                        reg.pushManager.getSubscription().then(function(sub) {
+                            let idThietBi = sub ? sub.endpoint : null;
+
+                            // Gửi lên server gồm: Tên, Chữ và cả ID của chính thiết bị này
+                            socket.emit('gui_tin_nhan_mau', { 
+                                ten: bieuTen, 
+                                chu: noiDung,
+                                idNguoiGui: idThietBi 
+                            });
+
+                            oNhap.value = "";
+                            oNhap.focus();
+                        });
+                    }).catch(function() {
+                        // Dự phòng nếu service worker chưa sẵn sàng thì gửi bình thường
+                        socket.emit('gui_tin_nhan_mau', { ten: bieuTen, chu: noiDung, idNguoiGui: null });
+                        oNhap.value = "";
+                        oNhap.focus();
+                    });
+                } else {
+                    socket.emit('gui_tin_nhan_mau', { ten: bieuTen, chu: noiDung, idNguoiGui: null });
+                    oNhap.value = "";
+                    oNhap.focus();
+                }
             }
         }
 

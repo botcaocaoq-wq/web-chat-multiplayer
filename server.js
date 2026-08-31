@@ -44,19 +44,23 @@ io.on('connection', (socket) => {
         console.log('Server nhận được tin nhắn từ ' + data.ten + ': ' + data.chu);
         io.emit('tin_nhan_moi_tu_server', data);
 
-        // Phát thông báo đẩy ngầm đến tất cả các điện thoại đã đăng ký kích hoạt
+        // Tạo nội dung thông báo đẩy ngầm
         const payload = JSON.stringify({
             title: `Tin nhắn mới từ ${data.ten}`,
             body: data.chu
         });
 
+        // Phát thông báo đẩy ngầm đến tất cả các điện thoại đã đăng ký kích hoạt
         danhSachDangKyThongBao.forEach(sub => {
-            webpush.sendNotification(sub, payload).catch(err => {
-                // Nếu người dùng gỡ cài đặt hoặc chặn thông báo thì xóa thiết bị đó khỏi danh sách
-                if (err.statusCode === 410) {
-                    danhSachDangKyThongBao = danhSachDangKyThongBao.filter(s => s.endpoint !== sub.endpoint);
-                }
-            });
+            // TÍNH NĂNG THÔNG MINH: Chỉ gửi thông báo nếu thiết bị đó KHÔNG PHẢI là người vừa ấn nút gửi
+            if (sub.endpoint !== data.idNguoiGui) {
+                webpush.sendNotification(sub, payload).catch(err => {
+                    // Nếu người dùng gỡ cài đặt hoặc chặn thông báo thì xóa thiết bị đó khỏi danh sách
+                    if (err.statusCode === 410) {
+                        danhSachDangKyThongBao = danhSachDangKyThongBao.filter(s => s.endpoint !== sub.endpoint);
+                    }
+                });
+            }
         });
     });
 
