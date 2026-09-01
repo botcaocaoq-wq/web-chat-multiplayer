@@ -53,7 +53,7 @@
         #o-chon-anh { display: none; } 
         
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
-        #nut-gui:hover { background: #005999; }
+        #nut-gui:hover { background: #000000; }
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
 
         #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
@@ -78,7 +78,7 @@
         }
     </style>
     <script src="/socket.io/socket.io.js"></script>
-    <script>
+        <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
@@ -121,6 +121,12 @@
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
                     socket.emit('lay_lich_su_khi_vao_sau');
+
+                    // TỰ ĐỘNG BẬT POP-UP HỎI BẬT THÔNG BÁO KHI VỪA VÀO PHÒNG THÀNH CÔNG
+                    let toaDoX = (screen.width - 450) / 2;
+                    let toaDoY = (screen.height - 350) / 2;
+                    window.open('/notice', 'NoticePopup', `width=450,height=350,left=${toaDoX},top=${toaDoY},resizable=no`);
+
                 } else {
                     alert("Đăng nhập thất bại!");
                 }
@@ -258,6 +264,7 @@
             box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
         }
 
+        // Gỡ bỏ hoàn toàn hàm kích hoạt thông báo cũ lỗi dấu ngoặc tại đây
         function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
     </script>
 </body>

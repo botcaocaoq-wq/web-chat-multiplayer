@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Kích hoạt thông báo Chatwold</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #222; color: #fff; text-align: center; padding: 30px; }
+        .khung-hop { background: #333; padding: 20px; border-radius: 8px; border: 1px solid #555; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        h3 { margin-top: 0; color: #ff9800; }
+        p { font-size: 14px; color: #ccc; line-height: 1.5; }
+        .nut-bam { padding: 12px 24px; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; margin: 10px 5px; transition: 0.2s; }
+        #nut-bat { background: #4caf50; color: white; }
+        #nut-bat:hover { background: #43a047; }
+        #nut-tat { background: #e53935; color: white; }
+        #nut-tat:hover { background: #d32f2f; }
+    </style>
+</head>
+<body>
+
+    <div class="khung-hop">
+        <h3>🔔 Thông báo Chatwold</h3>
+        <p>Bạn có muốn bật thông báo đẩy không? Khi có tin nhắn mới (chữ hoặc ảnh), hệ thống sẽ nổ thông báo về máy kể cả khi bạn đang tắt web.</p>
+        <button id="nut-bat" class="nut-bam" onclick="kichHoatLuonPush()">BẬT THÔNG BÁO</button>
+        <button id="nut-tat" class="nut-bam" onclick="window.close()">ĐÓNG</button>
+    </div>
+
+    <script>
+        async function kichHoatLuonPush() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    // Đăng ký Service Worker gánh tác vụ ngầm
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    
+                    // Xin quyền hiển thị từ trình duyệt hệ thống
+                    const permission = await Notification.requestPermission();
+                    
+                    if (permission === 'granted') {
+                        // Lấy mã khóa công khai từ server Render
+                        const response = await fetch('/vapid-public-key');
+                        const publicKey = await response.text();
+                        
+                        // Đăng ký cổng Push Manager bắt tay với server
+                        const subscription = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: publicKey
+                        });
+                        
+                        // Đẩy thông tin định danh máy này lên server lưu trữ
+                        await fetch('/save-subscription', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(subscription)
+                        });
+
+                        alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
+                        window.close(); // Đóng pop-up sau khi kích hoạt xong
+                    } else {
+                        alert('Bạn đã từ chối cấp quyền thông báo đẩy!');
+                    }
+                } catch (err) {
+                    console.error('Lỗi đăng ký Web-Push:', err);
+                    alert('Lỗi: ' + err.message);
+                }
+            } else {
+                alert('Thiết bị hoặc trình duyệt của bạn không hỗ trợ thông báo đẩy chạy ngầm!');
+            }
+        }
+    </script>
+</body>
+</html>
