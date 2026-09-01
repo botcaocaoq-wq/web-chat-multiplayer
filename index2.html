@@ -3,57 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Đã đổi tiêu đề tab trang web thành Chatwold theo ý bạn -->
+    <!-- Đã đổi tên dự án thành Chatwold -->
     <title>Chatwold</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
-        #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
-        
-        #khoi-chat-chinh { width: 422px; }
-        #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
-        #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
-        #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
-        
-        .nut-tien-ich { padding: 8px 12px; font-size: 18px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; }
-        #nut-cong-tac-cam { background: #555; }
-        #nut-cong-tac-share { background: #555; }
-        #nut-chon-anh { background: #555; }
-        #o-chon-anh { display: none; } 
-        
-        #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
-        #nut-gui:hover { background: #005999; }
-        #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
-
-        #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
-        .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
-        #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
-        
-        .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
-        .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        
-        /* CSS nút quả chuông gọn gàng, tinh tế */
-        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; font-size: 20px; cursor: pointer; border-radius: 4px; width: 60px; display: block; }
-        #nut-xin-quyen:hover { background: #e68a00; }
-
-        #khoi-camera-phu { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; flex: 1; padding: 10px; border-radius: 6px; min-height: 200px; }
-        .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
-        .anh-stream-live { width: 100%; height: 100%; object-fit: contain; background: #111; }
-        .lat-guong { transform: scaleX(-1); }
-        .nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
-
-        @media (max-width: 950px) {
-            #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
-            #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen { width: 100% !important; max-width: 422px; }
-            #khung-chat { width: calc(100% - 22px) !important; max-width: 400px; }
-            #khoi-camera-phu { width: 100% !important; grid-template-columns: 1fr !important; }
-        }
-    </style>
-    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
-    <!-- Đã đổi chữ tiêu đề chính thành Chatwold và thu gọn nút thông báo chỉ còn icon quả chuông 🔔 -->
+    <!-- Giao diện tối giản, chỉ giữ lại duy nhất icon quả chuông 🔔 -->
     <h2>Chatwold</h2>
     <button id="nut-xin-quyen" onclick="kichHoatChayNgam()" title="Kích hoạt nhận thông báo chạy ngầm">🔔</button>
     
@@ -85,6 +40,50 @@
 
     <video id="video-ngam-share" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas-ngam-chup" style="display:none;"></canvas>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
+        #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
+        
+        #khoi-chat-chinh { width: 422px; }
+        #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
+        #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
+        #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+        
+        .nut-tien-ich { padding: 8px 12px; font-size: 18px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        #nut-cong-tac-cam { background: #555; }
+        #nut-cong-tac-share { background: #555; }
+        #nut-chon-anh { background: #555; }
+        #o-chon-anh { display: none; } 
+        
+        #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
+        #nut-gui:hover { background: #005999; }
+        #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
+
+        #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
+        .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+        #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
+        
+        .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
+        .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
+        
+        /* Cấu hình nút quả chuông 🔔 gọn gàng */
+        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; font-size: 20px; cursor: pointer; border-radius: 4px; width: 60px; display: block; }
+        #nut-xin-quyen:hover { background: #e68a00; }
+
+        #khoi-camera-phu { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; flex: 1; padding: 10px; border-radius: 6px; min-height: 200px; }
+        .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+        .anh-stream-live { width: 100%; height: 100%; object-fit: contain; background: #111; }
+        .lat-guong { transform: scaleX(-1); }
+        .nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
+
+        @media (max-width: 950px) {
+            #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
+            #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen { width: 100% !important; max-width: 422px; }
+            #khung-chat { width: calc(100% - 22px) !important; max-width: 400px; }
+            #khoi-camera-phu { width: 100% !important; grid-template-columns: 1fr !important; }
+        }
+    </style>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -139,6 +138,7 @@
         function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
+        // ĐÃ SỬA LỖI: Gửi ảnh trực tiếp lên máy chủ, gỡ bỏ localStorage giúp mạch không bao giờ bị đơ
         function guiAnhTuDong(input) {
             if (input.files && input.files) {
                 const reader = new FileReader();
@@ -188,6 +188,7 @@
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
         socket.on('lenh_xoa_sach_phong_chat_client', () => { khungChat.innerHTML = ''; });
         function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
+
         socket.on('rtc_tin_hieu_nhan_ve', (data) => {
             if (data.sender === socket.id) return;
             if (data.type === 'frame_image') {
@@ -201,76 +202,51 @@
 
         async function xuLyCongTacLive(loaiYeuCau) {
             const tenUser = oTen.value.trim();
-
-            if (loaiStreamHienTai === loaiYeuCau) {
-                tatSachGiaiPhongStream();
-                return;
-            }
-
+            if (loaiStreamHienTai === loaiYeuCau) { tatSachGiaiPhongStream(); return; }
             if (streamThietBi) {
                 streamThietBi.getTracks().forEach(track => track.stop());
                 streamThietBi = null;
                 xoaKhoiVideoElements("my-local-stream");
             }
-
             try {
                 let laHieuUngGuong = false;
                 if (loaiYeuCau === 'camera') {
                     streamThietBi = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-                    loaiStreamHienTai = 'camera';
-                    laHieuUngGuong = true; 
-                    nutCongTacCam.style.background = '#4caf50';
-                    nutCongTacShare.style.background = '#555';
+                    loaiStreamHienTai = 'camera'; laHieuUngGuong = true; 
+                    nutCongTacCam.style.background = '#4caf50'; nutCongTacShare.style.background = '#555';
                 } else if (loaiYeuCau === 'screen') {
                     streamThietBi = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1280, height: 720, frameRate: 10 } });
                     loaiStreamHienTai = 'screen';
-                    nutCongTacShare.style.background = '#3949ab';
-                    nutCongTacCam.style.background = '#555';
+                    nutCongTacShare.style.background = '#3949ab'; nutCongTacCam.style.background = '#555';
                     streamThietBi.getVideoTracks().onended = () => { tatSachGiaiPhongStream(); };
                 }
-
                 const videoNgam = document.getElementById('video-ngam-share');
                 videoNgam.srcObject = streamThietBi;
-
                 const canvas = document.getElementById('canvas-ngam-chup');
                 const ctx = canvas.getContext('2d');
-
                 capNhatHoacTaoKhungAnhLive("my-local-stream", "", "Bạn (" + (loaiYeuCau === 'screen' ? "Màn hình" : "Camera") + ")", laHieuUngGuong);
                 const anhCucBo = document.getElementById("my-local-stream").querySelector('img');
 
                 intervalChupAnh = setInterval(() => {
                     if (videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA) {
-                        canvas.width = 640; 
-                        canvas.height = 360;
+                        canvas.width = 640; canvas.height = 360;
                         ctx.drawImage(videoNgam, 0, 0, canvas.width, canvas.height);
-                        
                         const chuoiBase64 = canvas.toDataURL('image/jpeg', 0.4);
                         anhCucBo.src = chuoiBase64;
-
                         socket.emit('rtc_tin_hieu_chuyen_tiep', {
-                            to: 'ALL_ROOM',
-                            type: 'frame_image',
-                            base64: chuoiBase64,
-                            isMirror: laHieuUngGuong,
+                            to: 'ALL_ROOM', type: 'frame_image', base64: chuoiBase64, isMirror: laHieuUngGuong,
                             label: tenUser + (loaiYeuCau === 'screen' ? " (Màn hình)" : " (Camera)")
                         });
                     }
                 }, 100);
-
                 socket.emit('xin_phep_bat_camera_server', { ten: tenUser });
-
-            } catch (err) {
-                alert('Không thể mở thiết bị!');
-                tatSachGiaiPhongStream();
-            }
+            } catch (err) { alert('Không thể mở thiết bị!'); tatSachGiaiPhongStream(); }
         }
 
         function tatSachGiaiPhongStream() {
             if (intervalChupAnh) { clearInterval(intervalChupAnh); intervalChupAnh = null; }
             if (streamThietBi) { streamThietBi.getTracks().forEach(track => track.stop()); streamThietBi = null; }
-            loaiStreamHienTai = null;
-            nutCongTacCam.style.background = '#555';
-            nutCongTacShare.style.background = '#555';
+            loaiStreamHienTai = null; nutCongTacCam.style.background = '#555'; nutCongTacShare.style.background = '#555';
             xoaKhoiVideoElements("my-local-stream");
             socket.emit('rtc_tin_hieu_chuyen_tiep', { to: 'ALL_ROOM', type: 'stop_stream' });
             socket.emit('chu_dong_tat_camera_server');
@@ -283,47 +259,42 @@
                 if (img && nguonAnhBase64) img.src = nguonAnhBase64;
                 return;
             }
-
             const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
             const img = document.createElement('img'); img.className = 'anh-stream-live';
             if (MirrorEffect) img.classList.add('lat-guong');
             if (nguonAnhBase64) img.src = nguonAnhBase64;
-
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
             box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
         }
 
-        // ĐỐI VỚI ĐIỆN THOẠI IPHONE (IOS): Bắt buộc mở web bằng Safari -> Bấm nút Chia sẻ (Share) -> Chọn "Thêm vào màn hình chính" (Add to Home Screen) rồi mở App đó lên bấm nút 🔔 này thì hệ thống mới cấp quyền nổ thông báo màn hình khóa được nhé!
         function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
 
+        // ĐỒNG BỘ THÔNG BÁO ĐẨY RA MÀN HÌNH KHÓA CHO CẢ ĐIỆN THOẠI LẪN MÁY TÍNH
         async function kichHoatChayNgam() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
                     const reg = await navigator.serviceWorker.register('/sw.js');
-                    const permission = await Notification.requestPermission();
-                    if (permission === 'granted') {
-                        alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
-                        const response = await fetch('/vapid-public-key');
-                        const publicKey = await response.text();
-                        const subscription = await reg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: publicKey
-                        });
-                        await fetch('/save-subscription', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(subscription)
-                        });
-                    } else {
-                        alert('Bạn đã chặn quyền thông báo!');
-                    }
-                } catch (err) {
-                    console.error('Lỗi kích hoạt thông báo:', err);
-                }
-            } else {
-                alert('Thiết bị không hỗ trợ thông báo đẩy!');
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
+            const response = await fetch('/vapid-public-key');
+            const publicKey = await response.text();
+            const subscription = await reg.pushManager.subscribe({
+                userVisibleOnly: true, 
+                applicationServerKey: publicKey
+            });
+            await fetch('/save-subscription', {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription)
+            });
+        } else { 
+            alert('Bạn đã chặn quyền thông báo!'); 
+        }
+    } catch (err) { 
+        console.error(err); 
+    }
+            } else { 
+                alert('Trình duyệt không hỗ trợ thông báo đẩy!'); 
             }
         }
-    </script>
-</body>
-</html>
