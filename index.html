@@ -22,14 +22,13 @@
         #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        #nut-invite:hover { background: #8e24aa !important; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
     <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-        <h2 style="margin: 0;">Chatwold</h2>
+        <h2>Chatwold</h2>
         <div style="background: #333; padding: 6px 12px; border-radius: 4px; border: 1px solid #555; font-size: 14px; font-weight: bold;">
             👥 Người khác online: <span id="chi-so-online" style="color: #ff9800;">0</span>
         </div>
@@ -40,8 +39,14 @@
     
     <div id="vung-nhap">
         <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
+        
+        <!-- NÚT MÁY ẢNH: Kích hoạt nhảy sang tab mới phát trực tiếp /camera song song chuẩn chỉ -->
+        <button id="nut-may-anh" class="nut-tien-ich" type="button" onclick="moTrangWebcamLive()" disabled>📷</button>
+        
+        <!-- NÚT ĐÍNH KÈM: Chọn ảnh từ máy để gửi lên khung chat -->
         <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
+        
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
         <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
     </div>
@@ -79,17 +84,24 @@
                 if (res.success) {
                     daDangNhapThanhCong = true;
                     oNhap.disabled = false;
+                    document.getElementById('nut-may-anh').disabled = false;
                     document.getElementById('nut-chon-anh').disabled = false;
                     document.getElementById('nut-gui').disabled = false;
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
                     socket.emit('lay_lich_su_khi_vao_sau');
 
+                    // Tự động kích hoạt trang notice hỏi quyền bật thông báo đẩy biệt lập
                     let toaDoX = (screen.width - 450) / 2;
                     let toaDoY = (screen.height - 350) / 2;
                     window.open('/notice', 'NoticePopup', `width=450,height=350,left=${toaDoX},top=${toaDoY},resizable=no`);
                 } else { alert(res.msg); }
             });
+        }
+
+        // Bấm nút máy ảnh nhảy bung tab mới dẫn thẳng sang trang /camera
+        function moTrangWebcamLive() {
+            window.open('/camera', '_blank');
         }
 
         function guiThongBaoMoiMoiNguoi() {
@@ -98,7 +110,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nguoiMoi: oTen.value.trim() })
             });
-            alert('🔥 Đã phát lệnh Invite toàn Server!');
+            alert('🔥 Đã phát lệnh Invite! Hệ thống đang bắn thông báo đẩy thẳng về màn hình khóa của tất cả mọi người.');
         }
 
         socket.on('cap_nhat_so_nguoi_online_he_thong', (tongSoNguoi) => {
