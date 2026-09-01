@@ -21,15 +21,12 @@
         #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; font-size: 20px; cursor: pointer; border-radius: 4px; width: 60px; display: block; }
-        #nut-xin-quyen:hover { background: #e68a00; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
     <h2>Chatwold</h2>
-    <button id="nut-xin-quyen" onclick="kichHoatChayNgam()" title="Kích hoạt nhận thông báo chạy ngầm">🔔</button>
     <div id="khung-chat"></div>
     
     <div id="vung-nhap">
@@ -69,10 +66,7 @@
         function xuLyXacThucTaiKhoan() {
             const ten = oTen.value.trim();
             const matKhau = oMatKhau.value;
-            if(!ten || !matKhau) {
-                alert("Vui lòng nhập đầy đủ thông tin!");
-                return;
-            }
+            if(!ten || !matKhau) return;
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
                 if (res.success) {
                     daDangNhapThanhCong = true;
@@ -151,29 +145,6 @@
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
         socket.on('lenh_xoa_sach_phong_chat_client', () => { khungChat.innerHTML = ''; });
         function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
-        
-        async function kichHoatChayNgam() {
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                try {
-                    const reg = await navigator.serviceWorker.register('/sw.js');
-                    const permission = await Notification.requestPermission();
-                    if (permission === 'granted') {
-                        alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
-                        const response = await fetch('/vapid-public-key');
-                        const publicKey = await response.text();
-                        const subscription = await reg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: publicKey
-                        });
-                        await fetch('/save-subscription', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(subscription)
-                        });
-                    } else { alert('Bạn đã chặn quyền thông báo!'); }
-                } catch (err) { console.error(err); }
-            } else { alert('Thiết bị không hỗ trợ thông báo đẩy!'); }
-        }
     </script>
 </body>
 </html>

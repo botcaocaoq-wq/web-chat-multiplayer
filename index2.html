@@ -8,7 +8,6 @@
 <body>
 
     <h2>Chatwold</h2>
-    <button id="nut-xin-quyen" onclick="kichHoatChayNgam()" title="Kích hoạt nhận thông báo chạy ngầm">🔔</button>
     
     <div id="giao-dien-tong">
         <div id="khoi-chat-chinh">
@@ -64,9 +63,6 @@
         
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        
-        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; font-size: 20px; cursor: pointer; border-radius: 4px; width: 60px; display: block; }
-        #nut-xin-quyen:hover { background: #e68a00; }
 
         #khoi-camera-phu { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; flex: 1; padding: 10px; border-radius: 6px; min-height: 200px; }
         .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
@@ -76,11 +72,12 @@
 
         @media (max-width: 950px) {
             #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
-            #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen { width: 100% !important; max-width: 422px; }
+            #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk { width: 100% !important; max-width: 422px; }
             #khung-chat { width: calc(100% - 22px) !important; max-width: 400px; }
             #khoi-camera-phu { width: 100% !important; grid-template-columns: 1fr !important; }
         }
     </style>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -100,7 +97,7 @@
         let loaiStreamHienTai = null; 
         let intervalChupAnh = null;
 
-        // FIX LỖI: Tự động gọi hàm vào phòng ngay lập tức nếu đã lưu thông tin đăng nhập cũ
+        // Tự động đăng nhập nhảy thẳng vào phòng chat nếu đã có tài khoản cũ lưu trên máy
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
@@ -112,10 +109,7 @@
         function xuLyXacThucTaiKhoan() {
             const ten = oTen.value.trim();
             const matKhau = oMatKhau.value;
-            if(!ten || !matKhau) {
-                alert("Vui lòng nhập đầy đủ tài khoản!");
-                return;
-            }
+            if(!ten || !matKhau) return;
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
                 if (res && res.success) {
                     daDangNhapThanhCong = true;
@@ -158,7 +152,7 @@
             oNhap.value = '';
         }
 
-        document.getElementById('o-nhap').addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
+        oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
 
         function hienThiTinNhanLenKhungChat(data) {
             let mocAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
@@ -265,32 +259,6 @@
         }
 
         function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
-
-        async function kichHoatChayNgam() {
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                try {
-                    const reg = await navigator.serviceWorker.register('/sw.js');
-                    const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
-            const response = await fetch('/vapid-public-key');
-            const publicKey = await response.text();
-            const subscription = await reg.pushManager.subscribe({
-                userVisibleOnly: true, 
-                applicationServerKey: publicKey
-            });
-            await fetch('/save-subscription', {
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(subscription)
-            });
-        } else { 
-            alert('Bạn đã chặn quyền thông báo!'); 
-        }
-    } catch (err) { 
-        console.error(err); 
-    }
-  } else { 
-    alert('Trình duyệt không hỗ trợ thông báo đẩy!'); 
-  } 
-}
+    </script>
+</body>
+</html>
