@@ -38,13 +38,9 @@
     
     <div id="vung-nhap">
         <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
-        
-        <!-- NÚT MÁY ẢNH: Mở tab mới dẫn sang trang live /camera song song -->
         <button id="nut-may-anh" class="nut-tien-ich" type="button" onclick="moTrangWebcamLive()" disabled>📷</button>
-        
         <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
-        
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
         <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
     </div>
