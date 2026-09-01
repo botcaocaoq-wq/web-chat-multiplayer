@@ -9,11 +9,9 @@
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
-        
         .nut-tien-ich { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
         .nut-tien-ich:hover { background: #666; }
-        #o-chon-anh, #o-chup-anh { display: none; } 
-        
+        #o-chon-anh { display: none; } 
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
@@ -24,6 +22,7 @@
         #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
+        #nut-invite:hover { background: #8e24aa !important; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -38,16 +37,11 @@
     </div>
     
     <div id="khung-chat"></div>
+    
     <div id="vung-nhap">
         <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
-        
-        <!-- ĐÃ KHÔI PHỤC: Nút chụp ảnh từ Máy ảnh (📷) hoạt động độc lập -->
-        <button id="nut-may-anh" class="nut-tien-ich" type="button" onclick="kichHoatOMayAnh()" disabled>📷</button>
-        <input type="file" id="o-chup-anh" accept="image/*" capture="environment" onchange="guiAnhTuDong(this)">
-        
         <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
-        
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
         <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
     </div>
@@ -58,6 +52,7 @@
         <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
     </div>
     <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
+
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -84,14 +79,12 @@
                 if (res.success) {
                     daDangNhapThanhCong = true;
                     oNhap.disabled = false;
-                    document.getElementById('nut-may-anh').disabled = false;
                     document.getElementById('nut-chon-anh').disabled = false;
                     document.getElementById('nut-gui').disabled = false;
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
                     socket.emit('lay_lich_su_khi_vao_sau');
 
-                    // Tự động kích hoạt trang notice xin quyền thông báo
                     let toaDoX = (screen.width - 450) / 2;
                     let toaDoY = (screen.height - 350) / 2;
                     window.open('/notice', 'NoticePopup', `width=450,height=350,left=${toaDoX},top=${toaDoY},resizable=no`);
@@ -114,20 +107,17 @@
         });
 
         function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
-        
-        // Kích hoạt mở camera chụp ảnh trực tiếp và mở thư mục ảnh con
-        function kichHoatOMayAnh() { document.getElementById('o-chup-anh').click(); }
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
         function guiAnhTuDong(input) {
-            if (input.files && input.files[0]) {
+            if (input.files && input.files) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
                     socket.emit('gui_tin_nhan_server', msg);
                     hienThiTinNhanLenKhungChat(msg);
                 };
-                reader.readAsDataURL(input.files[0]);
+                reader.readAsDataURL(input.files);
                 input.value = '';
             }
         }

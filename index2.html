@@ -7,7 +7,7 @@
 </head>
 <body>
 
-    <!-- Giao diện tối giản chuẩn Peak: Gồm chỉ số phân tích người online thực tế và nút lệnh Invite bắn Notification toàn Server -->
+    <!-- Bảng phân tích đếm người online (trừ bạn) và nút Invite bắn Notification toàn Server -->
     <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
         <h2 style="margin: 0;">Chatwold</h2>
         <div style="background: #333; padding: 6px 12px; border-radius: 4px; border: 1px solid #555; font-size: 14px; font-weight: bold;">
@@ -103,10 +103,8 @@
 
         let daDangNhapThanhCong = false;
         let streamThietBi = null; 
-        let loaiStreamHienTai = null; 
-        let intervalChupAnh = null;
+        let loaiStreamHienTai = null;
 
-        // Tự động đăng nhập nhảy thẳng vào phòng chat nếu đã có tài khoản cũ lưu trên máy
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
@@ -131,27 +129,23 @@
                     nutDoiTk.style.display = 'block';
                     socket.emit('lay_lich_su_khi_vao_sau');
 
-                    // TỰ ĐỘNG BẬT POP-UP HỎI BẬT THÔNG BÁO BIỆT LẬP KHI VỪA VÀO PHÒNG
+                    // Kích hoạt nổ cửa sổ notice xin quyền ngầm biệt lập
                     let toaDoX = (screen.width - 450) / 2;
                     let toaDoY = (screen.height - 350) / 2;
                     window.open('/notice', 'NoticePopup', `width=450,height=350,left=${toaDoX},top=${toaDoY},resizable=no`);
-                } else {
-                    alert("Đăng nhập thất bại!");
-                }
+                } else { alert("Đăng nhập thất bại!"); }
             });
         }
 
-        // ĐỒNG BỘ: Kích hoạt Server bắn Notification đẩy ra màn hình khóa của toàn bộ mọi người
         function guiThongBaoMoiMoiNguoi() {
             fetch('/gui-lenh-invite-all', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nguoiMoi: oTen.value.trim() })
             });
-            alert('🔥 Đã phát lệnh Invite! Hệ thống đang bắn thông báo đẩy thẳng lên màn hình khóa của toàn bộ người chơi khác.');
+            alert('🔥 Đã phát lệnh Invite toàn Server!');
         }
 
-        // ĐỒNG BỘ: Cập nhật chỉ số phân tích số người online thời gian thực thực tế (Không tính bạn)
         socket.on('cap_nhat_so_nguoi_online_he_thong', (tongSoNguoi) => {
             let soNguoiKhac = tongSoNguoi - 1;
             document.getElementById('chi-so-online').innerText = soNguoiKhac < 0 ? 0 : soNguoiKhac;
@@ -214,14 +208,11 @@
             if (data.sender === socket.id) return;
             if (data.type === 'frame_image') {
                 capNhatHoacTaoKhungAnhLive(data.sender, data.base64, data.label, data.isMirror);
-            } else if (data.type === 'stop_stream') {
-                xoaKhoiVideoElements(data.sender);
-            }
+            } else if (data.type === 'stop_stream') { xoaKhoiVideoElements(data.sender); }
         });
 
         socket.on('co_nguoi_vua_tat_camera', (data) => { xoaKhoiVideoElements(data.idSocket); });
 
-        // CƠ CHẾ LIVE CANVAS VÔ HẠN CHẠY NGẦM BẤT CHẤP CHUYỂN TAB 
         async function xuLyCongTacLive(loaiYeuCau) {
             const tenUser = oTen.value.trim();
             if (loaiStreamHienTai === loaiYeuCau) { tatSachGiaiPhongStream(); return; }
@@ -237,10 +228,7 @@
                     loaiStreamHienTai = 'camera'; laHieuUngGuong = true; 
                     nutCongTacCam.style.background = '#4caf50'; nutCongTacShare.style.background = '#555';
                 } else if (loaiYeuCau === 'screen') {
-                    streamThietBi = await navigator.mediaDevices.getDisplayMedia({ 
-                        video: { width: 1280, height: 720, frameRate: 15 },
-                        systemAudio: "include" 
-                    });
+                    streamThietBi = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1280, height: 720, frameRate: 15 }, systemAudio: "include" });
                     loaiStreamHienTai = 'screen';
                     nutCongTacShare.style.background = '#3949ab'; nutCongTacCam.style.background = '#555';
                     streamThietBi.getVideoTracks().onended = () => { tatSachGiaiPhongStream(); };
@@ -277,14 +265,8 @@
         }
 
         function tatSachGiaiPhongStream() {
-            if (intervalChupAnh) { clearInterval(intervalChupAnh); intervalChupAnh = null; }
-            if (streamThietBi) { 
-                streamThietBi.getTracks().forEach(track => track.stop()); 
-                streamThietBi = null; 
-            }
-            loaiStreamHienTai = null; 
-            nutCongTacCam.style.background = '#555'; 
-            nutCongTacShare.style.background = '#555';
+            if (streamThietBi) { streamThietBi.getTracks().forEach(track => track.stop()); streamThietBi = null; }
+            loaiStreamHienTai = null; nutCongTacCam.style.background = '#555'; nutCongTacShare.style.background = '#555';
             xoaKhoiVideoElements("my-local-stream");
             socket.emit('rtc_tin_hieu_chuyen_tiep', { to: 'ALL_ROOM', type: 'stop_stream' });
             socket.emit('chu_dong_tat_camera_server');
@@ -297,18 +279,18 @@
                 if (img && nguonAnhBase64) img.src = nguonAnhBase64;
                 return;
             }
-            const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
-            const img = document.createElement('img'); img.className = 'anh-stream-live';
-            if (MirrorEffect) img.classList.add('lat-guong');
-            if (nguonAnhBase64) img.src = nguonAnhBase64;
-            const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
-            box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
-        }
+        const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
+        const img = document.createElement('img'); img.className = 'anh-stream-live';
+        if (MirrorEffect) img.classList.add('lat-guong');
+        if (nguonAnhBase64) img.src = nguonAnhBase64;
+        const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
+        box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
+    }
 
-        function xoaKhoiVideoElements(id) { 
-            const box = document.getElementById(id); 
-            if (box) box.remove(); 
-        }
-    </script>
+    function xoaKhoiVideoElements(id) { 
+        const box = document.getElementById(id); 
+        if (box) box.remove(); 
+    }
+</script>
 </body>
 </html>
