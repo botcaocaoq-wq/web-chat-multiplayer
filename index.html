@@ -103,14 +103,14 @@
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
+            if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
                     socket.emit('gui_tin_nhan_server', msg);
                     hienThiTinNhanLenKhungChat(msg);
                 };
-                reader.readAsDataURL(input.files);
+                reader.readAsDataURL(input.files[0]);
                 input.value = '';
             }
         }
