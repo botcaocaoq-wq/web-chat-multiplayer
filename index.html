@@ -32,7 +32,6 @@
         <div style="background: #333; padding: 6px 12px; border-radius: 4px; border: 1px solid #555; font-size: 14px; font-weight: bold;">
             👥 Người khác online: <span id="chi-so-online" style="color: #ff9800;">0</span>
         </div>
-        <button id="nut-invite" onclick="guiThongBaoMoiMoiNguoi()" style="background: #6a1b9a; color: white; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer;">✉️ Invite</button>
     </div>
     
     <div id="khung-chat"></div>
@@ -40,10 +39,9 @@
     <div id="vung-nhap">
         <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
         
-        <!-- NÚT MÁY ẢNH: Kích hoạt nhảy sang tab mới phát trực tiếp /camera song song chuẩn chỉ -->
+        <!-- NÚT MÁY ẢNH: Mở tab mới dẫn sang trang live /camera song song -->
         <button id="nut-may-anh" class="nut-tien-ich" type="button" onclick="moTrangWebcamLive()" disabled>📷</button>
         
-        <!-- NÚT ĐÍNH KÈM: Chọn ảnh từ máy để gửi lên khung chat -->
         <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
         
@@ -90,28 +88,11 @@
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
                     socket.emit('lay_lich_su_khi_vao_sau');
-
-                    // Tự động kích hoạt trang notice hỏi quyền bật thông báo đẩy biệt lập
-                    let toaDoX = (screen.width - 450) / 2;
-                    let toaDoY = (screen.height - 350) / 2;
-                    window.open('/notice', 'NoticePopup', `width=450,height=350,left=${toaDoX},top=${toaDoY},resizable=no`);
                 } else { alert(res.msg); }
             });
         }
 
-        // Bấm nút máy ảnh nhảy bung tab mới dẫn thẳng sang trang /camera
-        function moTrangWebcamLive() {
-            window.open('/camera', '_blank');
-        }
-
-        function guiThongBaoMoiMoiNguoi() {
-            fetch('/gui-lenh-invite-all', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nguoiMoi: oTen.value.trim() })
-            });
-            alert('🔥 Đã phát lệnh Invite! Hệ thống đang bắn thông báo đẩy thẳng về màn hình khóa của tất cả mọi người.');
-        }
+        function moTrangWebcamLive() { window.open('/camera', '_blank'); }
 
         socket.on('cap_nhat_so_nguoi_online_he_thong', (tongSoNguoi) => {
             let soNguoiKhac = tongSoNguoi - 1;
