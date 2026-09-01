@@ -7,7 +7,14 @@
 </head>
 <body>
 
-    <h2>Chatwold</h2>
+    <!-- Thanh công cụ hiển thị số liệu phân tích online (Trừ bạn) và nút Invite -->
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+        <h2 style="margin: 0;">Chatwold</h2>
+        <div id="thanh-phan-tich" style="background: #333; padding: 6px 12px; border-radius: 4px; border: 1px solid #555; font-size: 14px; font-weight: bold;">
+            👥 Người khác online: <span id="chi-so-online" style="color: #ff9800;">0</span>
+        </div>
+        <button id="nut-invite" onclick="xuLyMoiBanBe()" style="background: #6a1b9a; color: white; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s;">✉️ Invite</button>
+    </div>
     
     <div id="giao-dien-tong">
         <div id="khoi-chat-chinh">
@@ -53,7 +60,7 @@
         #o-chon-anh { display: none; } 
         
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
-        #nut-gui:hover { background: #000000; }
+        #nut-gui:hover { background: #005999; }
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
 
         #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
@@ -61,6 +68,8 @@
         #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
         #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
         
+        #nut-invite:hover { background: #8e24aa !important; }
+
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
 
@@ -78,7 +87,7 @@
         }
     </style>
     <script src="/socket.io/socket.io.js"></script>
-        <script>
+    <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
@@ -97,7 +106,6 @@
         let loaiStreamHienTai = null; 
         let intervalChupAnh = null;
 
-        // Tự động đăng nhập nhảy thẳng vào phòng chat nếu đã có tài khoản cũ lưu trên máy
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 oTen.value = localStorage.getItem('saved_username');
@@ -121,17 +129,32 @@
                     vungTaiKhoan.style.display = 'none';
                     nutDoiTk.style.display = 'block';
                     socket.emit('lay_lich_su_khi_vao_sau');
-
-                    // TỰ ĐỘNG BẬT POP-UP HỎI BẬT THÔNG BÁO KHI VỪA VÀO PHÒNG THÀNH CÔNG
-                    let toaDoX = (screen.width - 450) / 2;
-                    let toaDoY = (screen.height - 350) / 2;
-                    window.open('/notice', 'NoticePopup', `width=450,height=350,left=${toaDoX},top=${toaDoY},resizable=no`);
-
                 } else {
                     alert("Đăng nhập thất bại!");
                 }
             });
         }
+
+        // TÍNH NĂNG ĐỈNH CAO: Bấm nút tự động Copy link mời bạn bè
+        function xuLyMoiBanBe() {
+            const linkHienTai = window.location.origin; // Lấy link web Render thực tế của bạn
+            const loiMoi = `Vào Chatwold tâm sự với tao đi bạn ơi! Link phòng nè: ${linkHienTai}`;
+            
+            navigator.clipboard.writeText(loiMoi).then(() => {
+                alert('📋 Đã sao chép lời mời kèm link phòng chat! Giờ bạn chỉ cần dán gửi cho bạn bè qua Messenger/Zalo thôi nhé.');
+            }).catch(err => {
+                alert('Không thể tự sao chép, bạn hãy tự gửi link này nhé: ' + linkHienTai);
+            });
+        }
+
+        // LẮNG NGHE SỐ LIỆU PHÂN TÍCH ONLINE TỪ SERVER (Không tính bạn)
+        socket.on('cap_nhat_so_nguoi_online_he_thong', (tongSoNguoi) => {
+            // Lấy số liệu thực tế trừ đi 1 (chính là trừ bản thân người đang xem)
+            let soNguoiKhac = tongSoNguoi - 1;
+            if (soNguoiKhac < 0) soNguoiKhac = 0; // Chống hiển thị số âm khi mạng chập chờn
+            
+            document.getElementById('chi-so-online').innerText = soNguoiKhac;
+        });
 
         function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
@@ -256,16 +279,15 @@
                 if (img && nguonAnhBase64) img.src = nguonAnhBase64;
                 return;
             }
-            const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
-            const img = document.createElement('img'); img.className = 'anh-stream-live';
-            if (MirrorEffect) img.classList.add('lat-guong');
-            if (nguonAnhBase64) img.src = nguonAnhBase64;
-            const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
-            box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
-        }
-
-        // Gỡ bỏ hoàn toàn hàm kích hoạt thông báo cũ lỗi dấu ngoặc tại đây
-        function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
-    </script>
-</body>
-</html>
+        const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
+        const img = document.createElement('img'); img.className = 'anh-stream-live';
+        if (MirrorEffect) img.classList.add('lat-guong');
+        if (nguonAnhBase64) img.src = nguonAnhBase64;
+        const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
+        box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
+    }
+    
+    function xoaKhoiVideoElements(id) { 
+        const box = document.getElementById(id); 
+        if (box) box.remove(); 
+    }
