@@ -8,8 +8,8 @@
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
         #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
-        #nut-chon-anh, #nut-nhay-cam { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
-        #nut-chon-anh:hover, #nut-nhay-cam:hover { background: #666; }
+        #nut-nhay-cam, #nut-chon-anh { padding: 8px 12px; font-size: 18px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; display: block; }
+        #nut-nhay-cam:hover, #nut-chon-anh:hover { background: #666; }
         #o-chon-anh { display: none; } 
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
@@ -33,7 +33,7 @@
     
     <div id="vung-nhap">
         <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
-        <button id="nut-nhay-cam" type="button" onclick="moTrangWebcamIndex2()" title="Mở trang xem camera" disabled>📷</button>
+        <button id="nut-nhay-cam" type="button" onclick="moTrangWebcamIndex2()" disabled>📷</button>
         <button id="nut-chon-anh" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
         <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
         <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
@@ -46,7 +46,6 @@
         <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
     </div>
     <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
-
     <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
@@ -93,27 +92,25 @@
 
         function xuLyDoiTaiKhoan() {
             if(confirm("Bạn có chắc chắn muốn thoát không?")) {
-                location.reload();
                 localStorage.clear();
+                location.reload();
             }
         }
 
         function moTrangWebcamIndex2() {
             window.open('/camera', '_blank');
-            window.open('/control', '_blank'); // Mở luôn cả tab điều khiển camera index3 tách biệt
         }
-
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
         function guiAnhTuDong(input) {
-            if (input.files && input.files[0]) {
+            if (input.files && input.files) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
                     socket.emit('gui_tin_nhan_server', msg);
                     hienThiTinNhanLenKhungChat(msg);
                 };
-                reader.readAsDataURL(input.files[0]);
+                reader.readAsDataURL(input.files);
                 input.value = '';
             }
         }
@@ -152,47 +149,46 @@
         });
 
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
-        function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
-        async function kichHoatChayNgam() { if ('Notification' in window) Notification.requestPermission(); }
+        
+        // Nhận lệnh xóa phòng tự động từ Server sau mỗi 20 phút
+        socket.on('lenh_xoa_sach_phong_chat_client', () => {
+            khungChat.innerHTML = '';
+        });
+
+        function xoaSachManHinhTroChuyen() { 
+            localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); 
+            khungChat.innerHTML = ''; 
+        }
+        
+        // ĐÃ KHÔI PHỤC: Hệ thống đăng ký Service Worker thông báo đẩy đồng bộ
+        async function kichHoatChayNgam() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
+                        const response = await fetch('/vapid-public-key');
+                        const publicKey = await response.text();
+                        const subscription = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: publicKey
+                        });
+                        await fetch('/save-subscription', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(subscription)
+                        });
+                    } else {
+                        alert('Bạn đã chặn quyền thông báo!');
+                    }
+                } catch (err) {
+                    console.error('Lỗi kích hoạt thông báo:', err);
+                }
+            } else {
+                alert('Trình duyệt hoặc thiết bị này không hỗ trợ thông báo đẩy!');
+            }
+        }
     </script>
 </body>
 </html>
-async function kichHoatChayNgam() {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-        try {
-            // Đăng ký file sw.js gánh tác vụ chạy ngầm
-            const reg = await navigator.serviceWorker.register('/sw.js');
-            console.log('Service Worker đã đăng ký thành công:', reg);
-
-            // Xin quyền thông báo từ người dùng
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-                alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
-                
-                // Lấy mã public key từ server để bắt tay hệ thống Web-Push
-                const response = await fetch('/vapid-public-key');
-                const publicKey = await response.text();
-                
-                // Đăng ký luồng Push Manager nhận tín hiệu từ server Render
-                const subscription = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: publicKey
-                });
-                
-                // Gửi thông tin định danh máy này lên server để lưu trữ gửi thông báo về sau
-                await fetch('/save-subscription', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(subscription)
-                });
-            } else {
-                alert('Bạn đã chặn quyền thông báo. Hãy bật lại trong cài đặt trình duyệt!');
-            }
-        } catch (err) {
-            console.error('Lỗi kích hoạt thông báo ngầm:', err);
-            alert('Không thể kích hoạt chạy ngầm: ' + err.message);
-        }
-    } else {
-        alert('Trình duyệt hoặc thiết bị này không hỗ trợ thông báo đẩy chạy ngầm!');
-    }
-}
