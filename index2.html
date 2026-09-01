@@ -1,323 +1,308 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phòng Chat WebRTC - Canvas Live & Screen Share</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
-        #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
-        
-        #khoi-chat-chinh { width: 422px; }
-        #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
-        #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
-        #o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
-        
-        .nut-tien-ich { padding: 8px 12px; font-size: 18px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; }
-        #nut-cong-tac-cam { background: #555; }
-        #nut-cong-tac-share { background: #555; }
-        #nut-chon-anh { background: #555; }
-        #o-chon-anh { display: none; } 
-        
-        #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
-        #nut-gui:hover { background: #005999; }
-        #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
+<h3>Chatwold</h3>
+<button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
 
-        #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
-        .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
-        #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
-        
-        .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
-        .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        #nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
-
-        #khoi-camera-phu { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; flex: 1; padding: 10px; border-radius: 6px; min-height: 200px; }
-        .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
-        .anh-stream-live { width: 100%; height: 100%; object-fit: contain; background: #111; }
-        .lat-guong { transform: scaleX(-1); }
-        .nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
-
-        @media (max-width: 950px) {
-            #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
-            #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen { width: 100% !important; max-width: 422px; }
-            #khung-chat { width: calc(100% - 22px) !important; max-width: 400px; }
-            #khoi-camera-phu { width: 100% !important; grid-template-columns: 1fr !important; }
-        }
-    </style>
-    <script src="/socket.io/socket.io.js"></script>
-</head>
-<body>
-
-    <h3>KHUNG TIN NHẮN MULTIPLAYER</h3>
-    <button id="nut-xin-quyen" onclick="kichHoatChayNgam()">🔔 KÍCH HOẠT NHẬN THÔNG BÁO KHI TẮT WEB</button>
-    
-    <div id="giao-dien-tong">
-        <div id="khoi-chat-chinh">
-            <div id="khung-chat"></div>
-            <div id="vung-nhap">
-                <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
-                
-                <button id="nut-cong-tac-cam" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('camera')" disabled>📷</button>
-                <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('screen')" disabled>🖥️</button>
-                
-                <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
-                <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
-                
-                <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
-                <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
-            </div>
-            <div id="vung-tai-khoan">
-                <input type="text" id="o-ten" class="o-dang-nhap" placeholder="Nhập Nickname..." autocomplete="off">
-                <input type="password" id="o-mat-khau" class="o-dang-nhap" placeholder="Mật khẩu..." autocomplete="off">
-                <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
-            </div>
-            <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
+<div id="giao-dien-tong">
+    <div id="khoi-chat-chinh">
+        <div id="khung-chat"></div>
+        <div id="vung-nhap">
+            <input type="text" id="o-nhap" placeholder="Nhập tin nhắn..." autocomplete="off" disabled>
+            
+            <button id="nut-cong-tac-cam" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('camera')" disabled>📷</button>
+            <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('screen')" disabled>🖥️</button>
+            
+            <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
+            <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
+            
+            <button id="nut-gui" onclick="guiTinNhan()" disabled>Gửi</button>
+            <button id="nut-xoa-man-hinh" onclick="xoaSachManHinhTroChuyen()">🧹</button>
         </div>
-
-        <div id="khoi-camera-phu"></div>
+        <div id="vung-tai-khoan">
+            <input type="text" id="o-ten" class="o-dang-nhap" placeholder="Nhập Nickname..." autocomplete="off">
+            <input type="password" id="o-mat-khau" class="o-dang-nhap" placeholder="Mật khẩu..." autocomplete="off">
+            <button id="nut-xac-thuc" onclick="xuLyXacThucTaiKhoan()">Vào Phòng</button>
+        </div>
+        <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
     </div>
 
-    <video id="video-ngam-share" autoplay playsinline style="display:none;"></video>
-    <canvas id="canvas-ngam-chup" style="display:none;"></canvas>
-    <script>
-        const socket = io();
-        const khungChat = document.getElementById('khung-chat');
-        const oNhap = document.getElementById('o-nhap');
-        const oTen = document.getElementById('o-ten');
-        const oMatKhau = document.getElementById('o-mat-khau');
-        const vungTaiKhoan = document.getElementById('vung-tai-khoan');
-        const nutDoiTk = document.getElementById('nut-doi-tk');
-        const nutGui = document.getElementById('nut-gui');
-        const nutChonAnh = document.getElementById('nut-chon-anh');
-        const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
-        const nutCongTacShare = document.getElementById('nut-cong-tac-share');
-        const khoiCameraPhu = document.getElementById('khoi-camera-phu');
+    <div id="khoi-camera-phu"></div>
+</div>
 
-        let daDangNhapThanhCong = false;
-        let streamThietBi = null; 
-        let loaiStreamHienTai = null; 
-        let intervalChupAnh = null;
+<video id="video-ngam-share" autoplay playsinline style="display:none;"></video>
+<canvas id="canvas-ngam-chup" style="display:none;"></canvas>
+body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
+#giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
-                oTen.value = localStorage.getItem('saved_username');
-                oMatKhau.value = localStorage.getItem('saved_password');
-                xuLyXacThucTaiKhoan(); 
-            }
-        });
+#khoi-chat-chinh { width: 422px; }
+#khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
+#vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
+#o-nhap { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
 
-        function xuLyXacThucTaiKhoan() {
-            const ten = oTen.value.trim();
-            const matKhau = oMatKhau.value;
-            if(!ten || !matKhau) {
-                alert("Vui lòng nhập đầy đủ tài khoản!");
-                return;
-            }
-            socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
-                if (res && res.success) {
-                    daDangNhapThanhCong = true;
-                    oNhap.disabled = false;
-                    nutChonAnh.disabled = false;
-                    nutCongTacCam.disabled = false;
-                    nutCongTacShare.disabled = false;
-                    nutGui.disabled = false;
-                    vungTaiKhoan.style.display = 'none';
-                    nutDoiTk.style.display = 'block';
-                    socket.emit('lay_lich_su_khi_vao_sau');
-                } else {
-                    alert("Đăng nhập thất bại!");
-                }
-            });
+.nut-tien-ich { padding: 8px 12px; font-size: 18px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+#nut-cong-tac-cam { background: #555; }
+#nut-cong-tac-share { background: #555; }
+#nut-chon-anh { background: #555; }
+#o-chon-anh { display: none; } 
+
+#nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
+#nut-gui:hover { background: #005999; }
+#nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
+
+#vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
+.o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
+#nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+#nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
+
+.tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
+.anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
+#nut-xin-quyen { margin-bottom: 10px; padding: 10px; background: #ff9800; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 4px; width: 422px; }
+
+#khoi-camera-phu { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; flex: 1; padding: 10px; border-radius: 6px; min-height: 200px; }
+.o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+.anh-stream-live { width: 100%; height: 100%; object-fit: contain; background: #111; }
+.lat-guong { transform: scaleX(-1); }
+.nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
+
+@media (max-width: 950px) {
+    #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
+    #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk, #nut-xin-quyen { width: 100% !important; max-width: 422px; }
+    #khung-chat { width: calc(100% - 22px) !important; max-width: 400px; }
+    #khoi-camera-phu { width: 100% !important; grid-template-columns: 1fr !important; }
+}
+const socket = io();
+const khungChat = document.getElementById('khung-chat');
+const oNhap = document.getElementById('o-nhap');
+const oTen = document.getElementById('o-ten');
+const oMatKhau = document.getElementById('o-mat-khau');
+const vungTaiKhoan = document.getElementById('vung-tai-khoan');
+const nutDoiTk = document.getElementById('nut-doi-tk');
+const nutGui = document.getElementById('nut-gui');
+const nutChonAnh = document.getElementById('nut-chon-anh');
+const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
+const nutCongTacShare = document.getElementById('nut-cong-tac-share');
+const khoiCameraPhu = document.getElementById('khoi-camera-phu');
+
+let daDangNhapThanhCong = false;
+let streamThietBi = null; 
+let loaiStreamHienTai = null; 
+let intervalChupAnh = null;
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
+        oTen.value = localStorage.getItem('saved_username');
+        oMatKhau.value = localStorage.getItem('saved_password');
+        xuLyXacThucTaiKhoan(); 
+    }
+});
+
+function xuLyXacThucTaiKhoan() {
+    const ten = oTen.value.trim();
+    const matKhau = oMatKhau.value;
+    if(!ten || !matKhau) {
+        alert("Vui lòng nhập đầy đủ tài khoản!");
+        return;
+    }
+    socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
+        if (res && res.success) {
+            daDangNhapThanhCong = true;
+            oNhap.disabled = false;
+            nutChonAnh.disabled = false;
+            nutCongTacCam.disabled = false;
+            nutCongTacShare.disabled = false;
+            nutGui.disabled = false;
+            vungTaiKhoan.style.display = 'none';
+            nutDoiTk.style.display = 'block';
+            socket.emit('lay_lich_su_khi_vao_sau');
+        } else {
+            alert("Đăng nhập thất bại!");
         }
+    });
+}
 
-        function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
-        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
+function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
+function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
-        function guiAnhTuDong(input) {
-            if (input.files && input.files) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
-                    socket.emit('gui_tin_nhan_server', msg);
-                    hienThiTinNhanLenKhungChat(msg);
-                };
-                reader.readAsDataURL(input.files);
-                input.value = ''; 
-            }
-        }
-
-        function guiTinNhan() {
-            const noiDung = oNhap.value.trim();
-            if (!noiDung) return;
-            const msg = { ten: oTen.value.trim(), loai: 'text', noiDung: noiDung, thoiGian: Date.now() };
+function guiAnhTuDong(input) {
+    if (input.files && input.files) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
             socket.emit('gui_tin_nhan_server', msg);
             hienThiTinNhanLenKhungChat(msg);
-            oNhap.value = '';
-        }
+        };
+        reader.readAsDataURL(input.files);
+        input.value = ''; 
+    }
+}
 
-        oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
+function guiTinNhan() {
+    const noiDung = oNhap.value.trim();
+    if (!noiDung) return;
+    const msg = { ten: oTen.value.trim(), loai: 'text', noiDung: noiDung, thoiGian: Date.now() };
+    socket.emit('gui_tin_nhan_server', msg);
+    hienThiTinNhanLenKhungChat(msg);
+    oNhap.value = '';
+}
 
-        function hienThiTinNhanLenKhungChat(data) {
-            let mocAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
-            if (data.thoiGian < mocAn) return;
-            const div = document.createElement('div');
-            div.className = 'tin-nhan';
-            div.innerHTML = `<strong>${data.ten}:</strong> `;
-            if (data.loai === 'image') {
-                const img = document.createElement('img'); img.src = data.noiDung; img.className = 'anh-chat';
-                div.appendChild(img);
-            } else {
-                const span = document.createElement('span'); span.innerText = data.noiDung;
-                div.appendChild(span);
-            }
-            khungChat.appendChild(div);
-            khungChat.scrollTop = khungChat.scrollHeight;
-        }
+oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
 
-        socket.on('tra_lich_su_cho_nguoi_moi', (lichSu) => {
-            khungChat.innerHTML = '';
-            lichSu.forEach(hienThiTinNhanLenKhungChat);
-        });
+function hienThiTinNhanLenKhungChat(data) {
+    let mocAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
+    if (data.thoiGian < mocAn) return;
+    const div = document.createElement('div');
+    div.className = 'tin-nhan';
+    div.innerHTML = `<strong>${data.ten}:</strong> `;
+    if (data.loai === 'image') {
+        const img = document.createElement('img'); img.src = data.noiDung; img.className = 'anh-chat';
+        div.appendChild(img);
+    } else {
+        const span = document.createElement('span'); span.innerText = data.noiDung;
+        div.appendChild(span);
+    }
+    khungChat.appendChild(div);
+    khungChat.scrollTop = khungChat.scrollHeight;
+}
 
-        socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
-        socket.on('lenh_xoa_sach_phong_chat_client', () => { khungChat.innerHTML = ''; });
-        function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
-        socket.on('rtc_tin_hieu_nhan_ve', (data) => {
-            if (data.sender === socket.id) return;
-            if (data.type === 'frame_image') {
-                capNhatHoacTaoKhungAnhLive(data.sender, data.base64, data.label, data.isMirror);
-            } else if (data.type === 'stop_stream') {
-                xoaKhoiVideoElements(data.sender);
-            }
-        });
+socket.on('tra_lich_su_cho_nguoi_moi', (lichSu) => {
+    khungChat.innerHTML = '';
+    lichSu.forEach(hienThiTinNhanLenKhungChat);
+});
 
-        socket.on('co_nguoi_vua_tat_camera', (data) => { xoaKhoiVideoElements(data.idSocket); });
+socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
+socket.on('lenh_xoa_sach_phong_chat_client', () => { khungChat.innerHTML = ''; });
+function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
 
-        async function xuLyCongTacLive(loaiYeuCau) {
-            const tenUser = oTen.value.trim();
+socket.on('rtc_tin_hieu_nhan_ve', (data) => {
+    if (data.sender === socket.id) return;
+    if (data.type === 'frame_image') {
+        capNhatHoacTaoKhungAnhLive(data.sender, data.base64, data.label, data.isMirror);
+    } else if (data.type === 'stop_stream') {
+        xoaKhoiVideoElements(data.sender);
+    }
+});
 
-            if (loaiStreamHienTai === loaiYeuCau) {
-                tatSachGiaiPhongStream();
-                return;
-            }
+socket.on('co_nguoi_vua_tat_camera', (data) => { xoaKhoiVideoElements(data.idSocket); });
 
-            if (streamThietBi) {
-                streamThietBi.getTracks().forEach(track => track.stop());
-                streamThietBi = null;
-                xoaKhoiVideoElements("my-local-stream");
-            }
+async function xuLyCongTacLive(loaiYeuCau) {
+    const tenUser = oTen.value.trim();
 
-            try {
-                let laHieuUngGuong = false;
-                if (loaiYeuCau === 'camera') {
-                    streamThietBi = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-                    loaiStreamHienTai = 'camera';
-                    laHieuUngGuong = true; 
-                    nutCongTacCam.style.background = '#4caf50';
-                    nutCongTacShare.style.background = '#555';
-                } else if (loaiYeuCau === 'screen') {
-                    streamThietBi = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1280, height: 720, frameRate: 10 } });
-                    loaiStreamHienTai = 'screen';
-                    nutCongTacShare.style.background = '#3949ab';
-                    nutCongTacCam.style.background = '#555';
-                    streamThietBi.getVideoTracks().onended = () => { tatSachGiaiPhongStream(); };
-                }
+    if (loaiStreamHienTai === loaiYeuCau) {
+        tatSachGiaiPhongStream();
+        return;
+    }
 
-                const videoNgam = document.getElementById('video-ngam-share');
-                videoNgam.srcObject = streamThietBi;
+    if (streamThietBi) {
+        streamThietBi.getTracks().forEach(track => track.stop());
+        streamThietBi = null;
+        xoaKhoiVideoElements("my-local-stream");
+    }
 
-                const canvas = document.getElementById('canvas-ngam-chup');
-                const ctx = canvas.getContext('2d');
-
-                capNhatHoacTaoKhungAnhLive("my-local-stream", "", "Bạn (" + (loaiYeuCau === 'screen' ? "Màn hình" : "Camera") + ")", laHieuUngGuong);
-                const anhCucBo = document.getElementById("my-local-stream").querySelector('img');
-
-                intervalChupAnh = setInterval(() => {
-                    if (videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA) {
-                        canvas.width = 640; 
-                        canvas.height = 360;
-                        ctx.drawImage(videoNgam, 0, 0, canvas.width, canvas.height);
-                        
-                        const chuoiBase64 = canvas.toDataURL('image/jpeg', 0.4);
-                        anhCucBo.src = chuoiBase64;
-
-                        socket.emit('rtc_tin_hieu_chuyen_tiep', {
-                            to: 'ALL_ROOM',
-                            type: 'frame_image',
-                            base64: chuoiBase64,
-                            isMirror: laHieuUngGuong,
-                            label: tenUser + (loaiYeuCau === 'screen' ? " (Màn hình)" : " (Camera)")
-                        });
-                    }
-                }, 100);
-
-                socket.emit('xin_phep_bat_camera_server', { ten: tenUser });
-
-            } catch (err) {
-                alert('Không thể mở thiết bị!');
-                tatSachGiaiPhongStream();
-            }
-        }
-
-        function tatSachGiaiPhongStream() {
-            if (intervalChupAnh) { clearInterval(intervalChupAnh); intervalChupAnh = null; }
-            if (streamThietBi) { streamThietBi.getTracks().forEach(track => track.stop()); streamThietBi = null; }
-            loaiStreamHienTai = null;
-            nutCongTacCam.style.background = '#555';
+    try {
+        let laHieuUngGuong = false;
+        if (loaiYeuCau === 'camera') {
+            streamThietBi = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+            loaiStreamHienTai = 'camera';
+            laHieuUngGuong = true; 
+            nutCongTacCam.style.background = '#4caf50';
             nutCongTacShare.style.background = '#555';
-            xoaKhoiVideoElements("my-local-stream");
-            socket.emit('rtc_tin_hieu_chuyen_tiep', { to: 'ALL_ROOM', type: 'stop_stream' });
-            socket.emit('chu_dong_tat_camera_server');
+        } else if (loaiYeuCau === 'screen') {
+            streamThietBi = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1280, height: 720, frameRate: 10 } });
+            loaiStreamHienTai = 'screen';
+            nutCongTacShare.style.background = '#3949ab';
+            nutCongTacCam.style.background = '#555';
+            streamThietBi.getVideoTracks().onended = () => { tatSachGiaiPhongStream(); };
         }
 
-        function capNhatHoacTaoKhungAnhLive(id, nguonAnhBase64, labelText, MirrorEffect) {
-            const khungSẵnCó = document.getElementById(id);
-            if (khungSẵnCó) {
-                const img = khungSẵnCó.querySelector('img');
-                if (img && nguonAnhBase64) img.src = nguonAnhBase64;
-                return;
+        const videoNgam = document.getElementById('video-ngam-share');
+        videoNgam.srcObject = streamThietBi;
+
+        const canvas = document.getElementById('canvas-ngam-chup');
+        const ctx = canvas.getContext('2d');
+
+        capNhatHoacTaoKhungAnhLive("my-local-stream", "", "Bạn (" + (loaiYeuCau === 'screen' ? "Màn hình" : "Camera") + ")", laHieuUngGuong);
+        const anhCucBo = document.getElementById("my-local-stream").querySelector('img');
+
+        intervalChupAnh = setInterval(() => {
+            if (videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA) {
+                canvas.width = 640; 
+                canvas.height = 360;
+                ctx.drawImage(videoNgam, 0, 0, canvas.width, canvas.height);
+                
+                const chuoiBase64 = canvas.toDataURL('image/jpeg', 0.4);
+                anhCucBo.src = chuoiBase64;
+
+                socket.emit('rtc_tin_hieu_chuyen_tiep', {
+                    to: 'ALL_ROOM',
+                    type: 'frame_image',
+                    base64: chuoiBase64,
+                    isMirror: laHieuUngGuong,
+                    label: tenUser + (loaiYeuCau === 'screen' ? " (Màn hình)" : " (Camera)")
+                });
             }
+        }, 100);
 
-            const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
-            const img = document.createElement('img'); img.className = 'anh-stream-live';
-            if (MirrorEffect) img.classList.add('lat-guong');
-            if (nguonAnhBase64) img.src = nguonAnhBase64;
+        socket.emit('xin_phep_bat_camera_server', { ten: tenUser });
 
-            const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
-            box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
-        }
+    } catch (err) {
+        alert('Không thể mở thiết bị!');
+        tatSachGiaiPhongStream();
+    }
+}
 
-        function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
+function tatSachGiaiPhongStream() {
+    if (intervalChupAnh) { clearInterval(intervalChupAnh); intervalChupAnh = null; }
+    if (streamThietBi) { streamThietBi.getTracks().forEach(track => track.stop()); streamThietBi = null; }
+    loaiStreamHienTai = null;
+    nutCongTacCam.style.background = '#555';
+    nutCongTacShare.style.background = '#555';
+    xoaKhoiVideoElements("my-local-stream");
+    socket.emit('rtc_tin_hieu_chuyen_tiep', { to: 'ALL_ROOM', type: 'stop_stream' });
+    socket.emit('chu_dong_tat_camera_server');
+}
 
-        async function kichHoatChayNgam() {
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                try {
-                    const reg = await navigator.serviceWorker.register('/sw.js');
-                    const permission = await Notification.requestPermission();
-                    if (permission === 'granted') {
-                        alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
-                        const response = await fetch('/vapid-public-key');
-                        const publicKey = await response.text();
-                        const subscription = await reg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: publicKey
-                        });
-                        await fetch('/save-subscription', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(subscription)
-                        });
-                    } else {
-                        alert('Bạn đã chặn quyền thông báo!');
-                    }
-                } catch (err) {
-                    console.error('Lỗi kích hoạt thông báo:', err);
-                }
+function capNhatHoacTaoKhungAnhLive(id, nguonAnhBase64, labelText, MirrorEffect) {
+    const khungSẵnCó = document.getElementById(id);
+    if (khungSẵnCó) {
+        const img = khungSẵnCó.querySelector('img');
+        if (img && nguonAnhBase64) img.src = nguonAnhBase64;
+        return;
+    }
+
+    const box = document.createElement('div'); box.id = id; box.className = 'o-chua-cam-don';
+    const img = document.createElement('img'); img.className = 'anh-stream-live';
+    if (MirrorEffect) img.classList.add('lat-guong');
+    if (nguonAnhBase64) img.src = nguonAnhBase64;
+
+    const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
+    box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
+}
+
+function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
+
+async function kichHoatChayNgam() {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+            const reg = await navigator.serviceWorker.register('/sw.js');
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                alert('🔔 Đã bật nhận thông báo chạy ngầm thành công!');
+                const response = await fetch('/vapid-public-key');
+                const publicKey = await response.text();
+                const subscription = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: publicKey
+                });
+                await fetch('/save-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(subscription)
+                });
             } else {
-                alert('Trình duyệt hoặc thiết bị này không hỗ trợ thông báo đẩy!');
+                alert('Bạn đã chặn quyền thông báo!');
             }
+        } catch (err) {
+            console.error('Lỗi kích hoạt thông báo:', err);
         }
-    </script>
-</body>
-</html>
+    } else {
+        alert('Trình duyệt hoặc thiết bị này không hỗ trợ thông báo đẩy!');
+    }
+}
