@@ -11,9 +11,7 @@ self.addEventListener('push', function(event) {
             event.waitUntil(
                 self.registration.showNotification(data.title, options)
             );
-        } catch (e) {
-            console.error('Lỗi giải mã dữ liệu push:', e);
-        }
+        } catch (e) { console.error(e); }
     }
 });
 
@@ -23,13 +21,9 @@ self.addEventListener('notificationclick', function(event) {
         clients.matchAll({ type: 'window' }).then(function(clientList) {
             for (var i = 0; i < clientList.length; i++) {
                 var client = clientList[i];
-                if (client.url === '/' && 'focus' in client) {
-                    return client.focus();
-                }
+                if (client.url === '/' && 'focus' in client) return client.focus();
             }
-            if (clients.openWindow) {
-                return clients.openWindow('/');
-            }
+            if (clients.openWindow) return clients.openWindow('/');
         })
     );
 });
