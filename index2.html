@@ -24,7 +24,6 @@
                 <button id="nut-cong-tac-cam" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('camera')" disabled>📷</button>
                 <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('screen')" disabled>🖥️</button>
                 
-                <!-- ĐÃ SỬA LỖI: Gán lại sự kiện onchange nạp ảnh Base64 siêu tốc -->
                 <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
                 <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
                 
@@ -94,18 +93,16 @@
         const vungTaiKhoan = document.getElementById('vung-tai-khoan');
         const nutDoiTk = document.getElementById('nut-doi-tk');
         
-        // Cố định định danh phần tử chuẩn giao diện chống hoàn toàn lỗi khựng mạch tự động đăng nhập
-        const nutGui = document.getElementById('nut-gui') || document.querySelector('button[onclick="guiTinNhan()"]');
-        const nutChonAnh = document.getElementById('nut-chon-anh') || document.querySelector('button[onclick="kichHoatOChonAnh()"]');
-        const nutCongTacCam = document.getElementById('nut-cong-tac-cam') || document.querySelector('button[onclick*="camera"]');
-        const nutCongTacShare = document.getElementById('nut-cong-tac-share') || document.querySelector('button[onclick*="screen"]');
+        const nutGui = document.getElementById('nut-gui');
+        const nutChonAnh = document.getElementById('nut-chon-anh');
+        const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
+        const nutCongTacShare = document.getElementById('nut-cong-tac-share');
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
 
         let daDangNhapThanhCong = false;
         let streamThietBi = null; 
         let loaiStreamHienTai = null;
 
-        // Cơ chế tự động gọi lệnh xác thực nhảy thẳng vào phòng không bắt ấn nút bậy bạ
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
                 if (oTen) oTen.value = localStorage.getItem('saved_username');
@@ -114,7 +111,7 @@
             }
         });
 
-                function xuLyXacThucTaiKhoan() {
+        function xuLyXacThucTaiKhoan() {
             const ten = oTen ? oTen.value.trim() : "";
             const matKhau = oMatKhau ? oMatKhau.value : "";
             if(!ten || !matKhau) return;
@@ -132,13 +129,7 @@
                     
                     localStorage.setItem('saved_username', ten);
                     localStorage.setItem('saved_password', matKhau);
-                    
                     socket.emit('lay_lich_su_khi_vao_sau');
-                    
-                    // ÉP TRÌNH DUYỆT TỰ GỌI LỆNH ĐỒNG BỘ CHỈ SỐ ONLINE NGAY KHI VÀO PHÒNG, KHÔNG CẦN BẤM F5
-                    socket.emit('lay_lich_su_khi_vao_sau', {}, () => {
-                        socket.emit('xin_phep_dong_bo_online');
-                    });
                 } else { alert("Đăng nhập thất bại!"); }
             });
         }
@@ -211,7 +202,6 @@
 
         socket.on('co_nguoi_vua_tat_camera', (data) => { xoaKhoiVideoElements(data.idSocket); });
 
-        // Vòng lặp đệ quy vô hạn băm ảnh Canvas ép trình duyệt nạp liên tục xuyên tab, sửa dứt điểm lỗi kẹt đứng hình
         async function xuLyCongTacLive(loaiYeuCau) {
             const tenUser = oTen.value.trim();
             if (loaiStreamHienTai === loaiYeuCau) { tatSachGiaiPhongStream(); return; }
@@ -290,7 +280,8 @@
             if (nguonAnhBase64) img.src = nguonAnhBase64;
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
             box.appendChild(img); box.appendChild(label); 
-            if (khoiCameraPhu) khoiCameraPhu.appendChild(box);
+            const vungChuaCam = document.getElementById('khoi-camera-phu') || document.body;
+            vungChuaCam.appendChild(box);
         }
 
         function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
