@@ -43,9 +43,10 @@
 
     <video id="video-ngam-share" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas-ngam-chup" style="display:none;"></canvas>
-      <style>
+    <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: #222; color: #fff; margin: 0; }
         #giao-dien-tong { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
+        
         #khoi-chat-chinh { width: 422px; }
         #khung-chat { width: 400px; height: 350px; border: 1px solid #555; background: #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
         #vung-nhap { display: flex; width: 422px; gap: 5px; align-items: center; margin-bottom: 8px; }
@@ -60,23 +61,21 @@
         #nut-gui { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 4px; }
         #nut-gui:hover { background: #005999; }
         #nut-xoa-man-hinh { padding: 10px 12px; font-size: 16px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; aspect-ratio: 1/1; }
-        
+
         #vung-tai-khoan { width: 422px; display: flex; gap: 5px; margin-bottom: 8px; }
         .o-dang-nhap { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid #555; background: #444; color: white; border-radius: 4px; }
         #nut-xac-thuc { padding: 8px 12px; font-size: 14px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
         #nut-doi-tk { padding: 8px 12px; font-size: 14px; background: #ff9800; color: black; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: none; width: 422px; margin-bottom: 8px; }
-        
+
         .tin-nhan { margin: 5px 0; padding: 5px; background: #444; border-radius: 3px; word-break: break-word; }
-        
-        /* ĐÊN ĐÂY: Đã xóa sạch dấu "=" bậy bạ gây điếc nút gửi ảnh */
         .anh-chat { max-width: 320px; max-height: 320px; border-radius: 5px; margin-top: 5px; display: block; object-fit: contain; }
-        
+
         #khoi-camera-phu { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; flex: 1; padding: 10px; border-radius: 6px; min-height: 200px; }
         .o-chua-cam-don { position: relative; background: #000; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 16/9; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
         .anh-stream-live { width: 100%; height: 100%; object-fit: contain; background: #111; }
         .lat-guong { transform: scaleX(-1); }
         .nhan-ten-cam { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 3px 8px; font-size: 12px; border-radius: 4px; color: #fff; font-weight: bold; }
-        
+
         @media (max-width: 950px) {
             #giao-dien-tong { flex-direction: column !important; width: 100% !important; gap: 15px; }
             #khoi-chat-chinh, #vung-nhap, #vung-tai-khoan, #nut-doi-tk { width: 100% !important; max-width: 422px; }
@@ -93,21 +92,20 @@
         const oMatKhau = document.getElementById('o-mat-khau');
         const vungTaiKhoan = document.getElementById('vung-tai-khoan');
         const nutDoiTk = document.getElementById('nut-doi-tk');
-        
         const nutGui = document.getElementById('nut-gui');
         const nutChonAnh = document.getElementById('nut-chon-anh');
         const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
         const nutCongTacShare = document.getElementById('nut-cong-tac-share');
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
 
-        let daDangNhapThanhCong = false;
+        let daDangNhapThcong = false;
         let streamThietBi = null; 
         let loaiStreamHienTai = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
-                if (oTen) oTen.value = localStorage.getItem('saved_username');
-                if (oMatKhau) oMatKhau.value = localStorage.getItem('saved_password');
+                oTen.value = localStorage.getItem('saved_username');
+                oMatKhau.value = localStorage.getItem('saved_password');
                 xuLyXacThucTaiKhoan(); 
             }
         });
@@ -116,10 +114,9 @@
             const ten = oTen ? oTen.value.trim() : "";
             const matKhau = oMatKhau ? oMatKhau.value : "";
             if(!ten || !matKhau) return;
-            
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
                 if (res && res.success) {
-                    daDangNhapThanhCong = true;
+                    daDangNhapThcong = true;
                     if (oNhap) oNhap.disabled = false;
                     if (nutChonAnh) nutChonAnh.disabled = false;
                     if (nutCongTacCam) nutCongTacCam.disabled = false;
@@ -142,16 +139,40 @@
         });
 
         function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
-        function kichHoatOChonAnh() { const oFile = document.getElementById('o-chon-anh'); if (oFile) oFile.click(); }
+        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
+        // Nén dung lượng ảnh đính kèm JPEG xuống 0.4 bằng Canvas trước khi gửi để tránh bị điếc nút đính kèm
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
-                    socket.emit('gui_tin_nhan_server', msg);
-                    hienThiTinNhanLenKhungChat(msg);
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        const canvasChup = document.getElementById('canvas-ngam-chup');
+                        const ctx = canvasChup.getContext('2d');
+                        
+                        let max_size = 800;
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > height) {
+                            if (width > max_size) { height *= max_size / width; width = max_size; }
+                        } else {
+                            if (height > max_size) { width *= max_size / height; height = max_size; }
+                        }
+                        
+                        canvasChup.width = width;
+                        canvasChup.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        const chuoiBase64Nen = canvasChup.toDataURL('image/jpeg', 0.4);
+                        
+                        const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: chuoiBase64Nen, thoiGian: Date.now() };
+                        socket.emit('gui_tin_nhan_server', msg);
+                        hienThiTinNhanLenKhungChat(msg);
+                    };
                 };
-                reader.readAsDataURL(input.files);
+                reader.readAsDataURL(file);
                 input.value = ''; 
             }
         }
@@ -165,7 +186,7 @@
             oNhap.value = '';
         }
 
-        if (oNhap) oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
+        oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
 
         function hienThiTinNhanLenKhungChat(data) {
             let mocAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
@@ -180,20 +201,18 @@
                 const span = document.createElement('span'); span.innerText = data.noiDung;
                 div.appendChild(span);
             }
-            if (khungChat) {
-                khungChat.appendChild(div);
-                khungChat.scrollTop = khungChat.scrollHeight;
-            }
+            khungChat.appendChild(div);
+            khungChat.scrollTop = khungChat.scrollHeight;
         }
 
         socket.on('tra_lich_su_cho_nguoi_moi', (lichSu) => {
-            if (khungChat) khungChat.innerHTML = '';
+            khungChat.innerHTML = '';
             lichSu.forEach(hienThiTinNhanLenKhungChat);
         });
 
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
-        socket.on('lenh_xoa_sach_phong_chat_client', () => { if (khungChat) khungChat.innerHTML = ''; });
-        function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); if (khungChat) khungChat.innerHTML = ''; }
+        socket.on('lenh_xoa_sach_phong_chat_client', () => { khungChat.innerHTML = ''; });
+        function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
         socket.on('rtc_tin_hieu_nhan_ve', (data) => {
             if (data.sender === socket.id) return;
             if (data.type === 'frame_image') {
@@ -216,34 +235,31 @@
                 if (loaiYeuCau === 'camera') {
                     streamThietBi = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
                     loaiStreamHienTai = 'camera'; laHieuUngGuong = true; 
-                    if (nutCongTacCam) nutCongTacCam.style.background = '#4caf50'; 
-                    if (nutCongTacShare) nutCongTacShare.style.background = '#555';
+                    nutCongTacCam.style.background = '#4caf50'; nutCongTacShare.style.background = '#555';
                 } else if (loaiYeuCau === 'screen') {
                     streamThietBi = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1280, height: 720, frameRate: 15 }, systemAudio: "include" });
                     loaiStreamHienTai = 'screen';
-                    if (nutCongTacShare) nutCongTacShare.style.background = '#3949ab'; 
-                    if (nutCongTacCam) nutCongTacCam.style.background = '#555';
+                    nutCongTacShare.style.background = '#3949ab'; nutCongTacCam.style.background = '#555';
                     streamThietBi.getVideoTracks().onended = () => { tatSachGiaiPhongStream(); };
                 }
                 const videoNgam = document.getElementById('video-ngam-share');
-                if (videoNgam) { videoNgam.srcObject = streamThietBi; videoNgam.play(); }
+                videoNgam.srcObject = streamThietBi;
+                videoNgam.play(); 
                 
                 const canvas = document.getElementById('canvas-ngam-chup');
-                const ctx = canvas ? canvas.getContext('2d') : null;
+                const ctx = canvas.getContext('2d');
                 capNhatHoacTaoKhungAnhLive("my-local-stream", "", "Bạn (" + (loaiYeuCau === 'screen' ? "Màn hình" : "Camera") + ")", laHieuUngGuong);
-                
-                const khungCucBo = document.getElementById("my-local-stream");
-                const anhCucBo = khungCucBo ? khungCucBo.querySelector('img') : null;
+                const anhCucBo = document.getElementById("my-local-stream").querySelector('img');
                 let thoiGianChupCuoi = 0;
                 
                 function vongLapChupAnhNgam(thoiGianHienTai) {
                     if (!streamThietBi) return;
                     if (thoiGianHienTai - thoiGianChupCuoi >= 100) { 
-                        if (videoNgam && videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA && canvas && ctx) {
+                        if (videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA) {
                             canvas.width = 640; canvas.height = 360;
                             ctx.drawImage(videoNgam, 0, 0, canvas.width, canvas.height);
                             const chuoiBase64 = canvas.toDataURL('image/jpeg', 0.4);
-                            if (anhCucBo) anhCucBo.src = chuoiBase64;
+                            anhCucBo.src = chuoiBase64;
                             socket.emit('rtc_tin_hieu_chuyen_tiep', {
                                 to: 'ALL_ROOM', type: 'frame_image', base64: chuoiBase64, isMirror: laHieuUngGuong,
                                 label: tenUser + (loaiYeuCau === 'screen' ? " (Màn hình)" : " (Camera)")
@@ -260,9 +276,7 @@
 
         function tatSachGiaiPhongStream() {
             if (streamThietBi) { streamThietBi.getTracks().forEach(track => track.stop()); streamThietBi = null; }
-            loaiStreamHienTai = null; 
-            if (nutCongTacCam) nutCongTacCam.style.background = '#555'; 
-            if (nutCongTacShare) nutCongTacShare.style.background = '#555';
+            loaiStreamHienTai = null; nutCongTacCam.style.background = '#555'; nutCongTacShare.style.background = '#555';
             xoaKhoiVideoElements("my-local-stream");
             socket.emit('rtc_tin_hieu_chuyen_tiep', { to: 'ALL_ROOM', type: 'stop_stream' });
             socket.emit('chu_dong_tat_camera_server');
@@ -280,9 +294,7 @@
             if (MirrorEffect) img.classList.add('lat-guong');
             if (nguonAnhBase64) img.src = nguonAnhBase64;
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
-            box.appendChild(img); box.appendChild(label); 
-            const vungChuaCam = document.getElementById('khoi-camera-phu') || document.body;
-            vungChuaCam.appendChild(box);
+            box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);
         }
 
         function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
