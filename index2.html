@@ -24,6 +24,7 @@
                 <button id="nut-cong-tac-cam" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('camera')" disabled>📷</button>
                 <button id="nut-cong-tac-share" class="nut-tien-ich" type="button" onclick="xuLyCongTacLive('screen')" disabled>🖥️</button>
                 
+                <!-- ĐÃ SỬA LỖI: Gán lại sự kiện onchange nạp ảnh Base64 siêu tốc -->
                 <button id="nut-chon-anh" class="nut-tien-ich" type="button" onclick="kichHoatOChonAnh()" disabled>📎</button>
                 <input type="file" id="o-chon-anh" accept="image/*" onchange="guiAnhTuDong(this)">
                 
@@ -113,7 +114,7 @@
             }
         });
 
-        function xuLyXacThucTaiKhoan() {
+                function xuLyXacThucTaiKhoan() {
             const ten = oTen ? oTen.value.trim() : "";
             const matKhau = oMatKhau ? oMatKhau.value : "";
             if(!ten || !matKhau) return;
@@ -131,7 +132,13 @@
                     
                     localStorage.setItem('saved_username', ten);
                     localStorage.setItem('saved_password', matKhau);
+                    
                     socket.emit('lay_lich_su_khi_vao_sau');
+                    
+                    // ÉP TRÌNH DUYỆT TỰ GỌI LỆNH ĐỒNG BỘ CHỈ SỐ ONLINE NGAY KHI VÀO PHÒNG, KHÔNG CẦN BẤM F5
+                    socket.emit('lay_lich_su_khi_vao_sau', {}, () => {
+                        socket.emit('xin_phep_dong_bo_online');
+                    });
                 } else { alert("Đăng nhập thất bại!"); }
             });
         }
