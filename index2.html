@@ -92,52 +92,58 @@
         const oMatKhau = document.getElementById('o-mat-khau');
         const vungTaiKhoan = document.getElementById('vung-tai-khoan');
         const nutDoiTk = document.getElementById('nut-doi-tk');
-        const nutGui = document.getElementById('nut-gui');
-        const nutChonAnh = document.getElementById('nut-chon-anh');
-        const nutCongTacCam = document.getElementById('nut-cong-tac-cam');
-        const nutCongTacShare = document.getElementById('nut-cong-tac-share');
+        
+        // Cố định định danh phần tử chuẩn giao diện chống hoàn toàn lỗi khựng mạch tự động đăng nhập
+        const nutGui = document.getElementById('nut-gui') || document.querySelector('button[onclick="guiTinNhan()"]');
+        const nutChonAnh = document.getElementById('nut-chon-anh') || document.querySelector('button[onclick="kichHoatOChonAnh()"]');
+        const nutCongTacCam = document.getElementById('nut-cong-tac-cam') || document.querySelector('button[onclick*="camera"]');
+        const nutCongTacShare = document.getElementById('nut-cong-tac-share') || document.querySelector('button[onclick*="screen"]');
         const khoiCameraPhu = document.getElementById('khoi-camera-phu');
 
         let daDangNhapThanhCong = false;
         let streamThietBi = null; 
         let loaiStreamHienTai = null;
 
+        // Cơ chế tự động gọi lệnh xác thực nhảy thẳng vào phòng không bắt ấn nút bậy bạ
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('saved_username') && localStorage.getItem('saved_password')) {
-                oTen.value = localStorage.getItem('saved_username');
-                oMatKhau.value = localStorage.getItem('saved_password');
+                if (oTen) oTen.value = localStorage.getItem('saved_username');
+                if (oMatKhau) oMatKhau.value = localStorage.getItem('saved_password');
                 xuLyXacThucTaiKhoan(); 
             }
         });
 
         function xuLyXacThucTaiKhoan() {
-            const ten = oTen.value.trim();
-            const matKhau = oMatKhau.value;
+            const ten = oTen ? oTen.value.trim() : "";
+            const matKhau = oMatKhau ? oMatKhau.value : "";
             if(!ten || !matKhau) return;
+            
             socket.emit('dang_nhap_he_thong', { ten: ten, matKhau: matKhau }, (res) => {
                 if (res && res.success) {
                     daDangNhapThanhCong = true;
-                    oNhap.disabled = false;
-                    nutChonAnh.disabled = false;
-                    nutCongTacCam.disabled = false;
-                    nutCongTacShare.disabled = false;
-                    nutGui.disabled = false;
-                    vungTaiKhoan.style.display = 'none';
-                    nutDoiTk.style.display = 'block';
+                    if (oNhap) oNhap.disabled = false;
+                    if (nutChonAnh) nutChonAnh.disabled = false;
+                    if (nutCongTacCam) nutCongTacCam.disabled = false;
+                    if (nutCongTacShare) nutCongTacShare.disabled = false;
+                    if (nutGui) nutGui.disabled = false;
+                    if (vungTaiKhoan) vungTaiKhoan.style.display = 'none';
+                    if (nutDoiTk) nutDoiTk.style.display = 'block';
+                    
+                    localStorage.setItem('saved_username', ten);
+                    localStorage.setItem('saved_password', matKhau);
                     socket.emit('lay_lich_su_khi_vao_sau');
                 } else { alert("Đăng nhập thất bại!"); }
             });
         }
 
-        // LẮNG NGHE SỐ LIỆU TỪ SERVER: Cập nhật chỉ số người khác online (Đã trừ bạn)
         socket.on('cap_nhat_so_nguoi_online_he_thong', (tongSoNguoi) => {
             let soNguoiKhac = tongSoNguoi - 1;
-            document.getElementById('chi-so-online').innerText = soNguoiKhac < 0 ? 0 : soNguoiKhac;
+            const oChiSo = document.getElementById('chi-so-online');
+            if (oChiSo) oChiSo.innerText = soNguoiKhac < 0 ? 0 : soNguoiKhac;
         });
 
         function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
-        function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
-
+        function kichHoatOChonAnh() { const oFile = document.getElementById('o-chon-anh'); if (oFile) oFile.click(); }
         function guiAnhTuDong(input) {
             if (input.files && input.files) {
                 const reader = new FileReader();
@@ -160,7 +166,7 @@
             oNhap.value = '';
         }
 
-        oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
+        if (oNhap) oNhap.addEventListener('keypress', (e) => { if (e.key === 'Enter') guiTinNhan(); });
 
         function hienThiTinNhanLenKhungChat(data) {
             let mocAn = parseInt(localStorage.getItem('moc_thoi_gian_an_tin_nhan')) || 0;
@@ -175,19 +181,20 @@
                 const span = document.createElement('span'); span.innerText = data.noiDung;
                 div.appendChild(span);
             }
-            khungChat.appendChild(div);
-            khungChat.scrollTop = khungChat.scrollHeight;
+            if (khungChat) {
+                khungChat.appendChild(div);
+                khungChat.scrollTop = khungChat.scrollHeight;
+            }
         }
 
         socket.on('tra_lich_su_cho_nguoi_moi', (lichSu) => {
-            khungChat.innerHTML = '';
+            if (khungChat) khungChat.innerHTML = '';
             lichSu.forEach(hienThiTinNhanLenKhungChat);
         });
 
         socket.on('nhan_tin_nhan_client', hienThiTinNhanLenKhungChat);
-        socket.on('lenh_xoa_sach_phong_chat_client', () => { khungChat.innerHTML = ''; });
-        function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); khungChat.innerHTML = ''; }
-
+        socket.on('lenh_xoa_sach_phong_chat_client', () => { if (khungChat) khungChat.innerHTML = ''; });
+        function xoaSachManHinhTroChuyen() { localStorage.setItem('moc_thoi_gian_an_tin_nhan', Date.now()); if (khungChat) khungChat.innerHTML = ''; }
         socket.on('rtc_tin_hieu_nhan_ve', (data) => {
             if (data.sender === socket.id) return;
             if (data.type === 'frame_image') {
@@ -197,7 +204,7 @@
 
         socket.on('co_nguoi_vua_tat_camera', (data) => { xoaKhoiVideoElements(data.idSocket); });
 
-        // CƠ CHẾ VÒNG LẶP VÔ HẠN NGẦM: Ép Chrome nạp khung hình liên tục bất chấp ẩn tab
+        // Vòng lặp đệ quy vô hạn băm ảnh Canvas ép trình duyệt nạp liên tục xuyên tab, sửa dứt điểm lỗi kẹt đứng hình
         async function xuLyCongTacLive(loaiYeuCau) {
             const tenUser = oTen.value.trim();
             if (loaiStreamHienTai === loaiYeuCau) { tatSachGiaiPhongStream(); return; }
@@ -211,31 +218,34 @@
                 if (loaiYeuCau === 'camera') {
                     streamThietBi = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
                     loaiStreamHienTai = 'camera'; laHieuUngGuong = true; 
-                    nutCongTacCam.style.background = '#4caf50'; nutCongTacShare.style.background = '#555';
+                    if (nutCongTacCam) nutCongTacCam.style.background = '#4caf50'; 
+                    if (nutCongTacShare) nutCongTacShare.style.background = '#555';
                 } else if (loaiYeuCau === 'screen') {
                     streamThietBi = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1280, height: 720, frameRate: 15 }, systemAudio: "include" });
                     loaiStreamHienTai = 'screen';
-                    nutCongTacShare.style.background = '#3949ab'; nutCongTacCam.style.background = '#555';
+                    if (nutCongTacShare) nutCongTacShare.style.background = '#3949ab'; 
+                    if (nutCongTacCam) nutCongTacCam.style.background = '#555';
                     streamThietBi.getVideoTracks().onended = () => { tatSachGiaiPhongStream(); };
                 }
                 const videoNgam = document.getElementById('video-ngam-share');
-                videoNgam.srcObject = streamThietBi;
-                videoNgam.play(); 
+                if (videoNgam) { videoNgam.srcObject = streamThietBi; videoNgam.play(); }
                 
                 const canvas = document.getElementById('canvas-ngam-chup');
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas ? canvas.getContext('2d') : null;
                 capNhatHoacTaoKhungAnhLive("my-local-stream", "", "Bạn (" + (loaiYeuCau === 'screen' ? "Màn hình" : "Camera") + ")", laHieuUngGuong);
-                const anhCucBo = document.getElementById("my-local-stream").querySelector('img');
+                
+                const khungCucBo = document.getElementById("my-local-stream");
+                const anhCucBo = khungCucBo ? khungCucBo.querySelector('img') : null;
                 let thoiGianChupCuoi = 0;
                 
                 function vongLapChupAnhNgam(thoiGianHienTai) {
                     if (!streamThietBi) return;
                     if (thoiGianHienTai - thoiGianChupCuoi >= 100) { 
-                        if (videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA) {
+                        if (videoNgam && videoNgam.readyState === videoNgam.HAVE_ENOUGH_DATA && canvas && ctx) {
                             canvas.width = 640; canvas.height = 360;
                             ctx.drawImage(videoNgam, 0, 0, canvas.width, canvas.height);
                             const chuoiBase64 = canvas.toDataURL('image/jpeg', 0.4);
-                            anhCucBo.src = chuoiBase64;
+                            if (anhCucBo) anhCucBo.src = chuoiBase64;
                             socket.emit('rtc_tin_hieu_chuyen_tiep', {
                                 to: 'ALL_ROOM', type: 'frame_image', base64: chuoiBase64, isMirror: laHieuUngGuong,
                                 label: tenUser + (loaiYeuCau === 'screen' ? " (Màn hình)" : " (Camera)")
@@ -252,7 +262,9 @@
 
         function tatSachGiaiPhongStream() {
             if (streamThietBi) { streamThietBi.getTracks().forEach(track => track.stop()); streamThietBi = null; }
-            loaiStreamHienTai = null; nutCongTacCam.style.background = '#555'; nutCongTacShare.style.background = '#555';
+            loaiStreamHienTai = null; 
+            if (nutCongTacCam) nutCongTacCam.style.background = '#555'; 
+            if (nutCongTacShare) nutCongTacShare.style.background = '#555';
             xoaKhoiVideoElements("my-local-stream");
             socket.emit('rtc_tin_hieu_chuyen_tiep', { to: 'ALL_ROOM', type: 'stop_stream' });
             socket.emit('chu_dong_tat_camera_server');
@@ -270,5 +282,11 @@
             if (MirrorEffect) img.classList.add('lat-guong');
             if (nguonAnhBase64) img.src = nguonAnhBase64;
             const label = document.createElement('div'); label.className = 'nhan-ten-cam'; label.innerText = labelText;
-box.appendChild(img); box.appendChild(label); khoiCameraPhu.appendChild(box);}
-function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
+            box.appendChild(img); box.appendChild(label); 
+            if (khoiCameraPhu) khoiCameraPhu.appendChild(box);
+        }
+
+        function xoaKhoiVideoElements(id) { const box = document.getElementById(id); if (box) box.remove(); }
+    </script>
+</body>
+</html>
