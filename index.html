@@ -52,7 +52,7 @@
     </div>
     <button id="nut-doi-tk" onclick="xuLyDoiTaiKhoan()">🔄 ĐỔI TÀI KHOẢN KHÁC</button>
 
-    <script>
+        <script>
         const socket = io();
         const khungChat = document.getElementById('khung-chat');
         const oNhap = document.getElementById('o-nhap');
@@ -98,16 +98,46 @@
         function xuLyDoiTaiKhoan() { localStorage.clear(); location.reload(); }
         function kichHoatOChonAnh() { document.getElementById('o-chon-anh').click(); }
 
+        // ĐÃ ĐỒNG BỘ: Hàm nén ảnh tự động bằng Canvas tránh nghẽn mạch trên file index.html
         function guiAnhTuDong(input) {
-            if (input.files && input.files) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: e.target.result, thoiGian: Date.now() };
-                    socket.emit('gui_tin_nhan_server', msg);
-                    hienThiTinNhanLenKhungChat(msg);
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        let canvasChup = document.getElementById('canvas-ngam-chup-anh');
+                        if (!canvasChup) {
+                            canvasChup = document.createElement('canvas');
+                            canvasChup.id = 'canvas-ngam-chup-anh';
+                            canvasChup.style.display = 'none';
+                            document.body.appendChild(canvasChup);
+                        }
+                        const ctx = canvasChup.getContext('2d');
+                        
+                        let max_size = 800;
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > height) {
+                            if (width > max_size) { height *= max_size / width; width = max_size; }
+                        } else {
+                            if (height > max_size) { width *= max_size / height; height = max_size; }
+                        }
+                        
+                        canvasChup.width = width;
+                        canvasChup.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        const chuoiBase64Nen = canvasChup.toDataURL('image/jpeg', 0.4);
+                        
+                        const msg = { ten: oTen.value.trim(), loai: 'image', noiDung: chuoiBase64Nen, thoiGian: Date.now() };
+                        socket.emit('gui_tin_nhan_server', msg);
+                        hienThiTinNhanLenKhungChat(msg);
+                    };
                 };
-                reader.readAsDataURL(input.files);
-                input.value = '';
+                reader.readAsDataURL(file);
+                input.value = ''; 
             }
         }
 
